@@ -1,0 +1,82 @@
+# ============================================================================
+# fabric-platform.yaml
+#
+# Input spec for generating a Microsoft Fabric `fab` CLI script that creates
+# workspaces AND the items inside them. Hand this to Claude → get a runnable
+# provision.sh. Nothing touches Fabric until you run that script.
+#
+# Grounded in the architecture pattern spec:
+#   §15.2  workspace naming   ws-{org}-{domain}-{component}-{env}
+#   §15.4  item naming        [TYPE]_[PURPOSE]_[freetext]
+#   §5     medallion layers   landing/raw/base/enriched/curated/semantic
+#
+# Templating: {domain} and {env} are expanded by the generator — one full set
+# of workspaces+items per domain, per environment. Item lists are STARTERS:
+# edit, add, or remove freely.
+# ============================================================================
+
+# --- Required ---------------------------------------------------------------
+
+org: contoso                              # §15.1 lowercase, no spaces
+capacity: cap-contoso-analytics-weu-01    # §15.3 — must ALREADY exist (not created here)
+
+environments:                             # §15.1 allows dev | tst | prd
+  - dev
+  - prd
+
+domains:                                  # each gets its own full workspace set
+  - fin
+
+
+# --- Workspace components (§15.2, full 7-component model) --------------------
+# Each entry => ws-{org}-{domain}-{component}-{env}, holding the items listed.
+# For the MEDIUM tier (§4.2): keep only store / engineering / analytics by
+# folding ingest+prepare+orchestrate+core into "engineering" and model+present
+# into "analytics".
+
+components:
+
+  core:                                   # shared config / utilities per domain
+    variable_libraries:
+      - VL_CNFGS_{domain}_env
+
+  ingest:                                 # data in — one notebook per source system
+    notebooks:
+      - NB_INGST_{domain}_example_source
+    pipelines:
+      - DP_INGST_{domain}_landing_loader
+
+  store:                                  # the medallion lakehouses
+    lakehouses:                           # -> LH_STORE_{domain}_{layer}
+      - landing                           # files only — no schema
+      - raw
+      - base
+      - enriched
+      - curated
+      - semantic
+
+  prepare:                                # transforms between layers
+    notebooks:
+      - NB_TRNSF_{domain}_raw_to_base
+      - NB_TRNSF_{domain}_base_to_enriched
+
+  orchestrate:                            # master pipeline that chains the rest
+    pipelines:
+      - DP_ORCHS_{domain}_master
+
+  model:                                  # semantic layer
+    semantic_models:
+      - SM_ANLYZ_{domain}_financial
+
+  present:                                # reports / apps
+    reports:
+      - RP_ANLYZ_{domain}_overview
+
+
+# --- Platform-level workspace (§15.2 — no env suffix, not per-domain) --------
+# Named ws-{org}-platform-monitoring. Delete if not needed.
+
+platform_workspaces:
+  monitoring:
+    lakehouses:
+      - LH_MONIT_platform_ops
