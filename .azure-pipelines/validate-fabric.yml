@@ -1,0 +1,30 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - main
+
+pr:
+  branches:
+    include:
+      - develop
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.12'
+
+  - script: |
+      python -m pip install --upgrade pip
+      python -m pip install PyYAML fabric-cicd
+    displayName: Install validation dependencies
+
+  - script: python scripts/validate.py
+    displayName: Validate Fabric platform specification
+
+  - script: python -m json.tool notebooks/NB_INGST_fin_example_source.ipynb > /dev/null
+    displayName: Validate notebook JSON

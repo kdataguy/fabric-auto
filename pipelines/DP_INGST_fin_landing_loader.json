@@ -1,0 +1,63 @@
+{
+  "name": "DP_INGST_fin_landing_loader",
+  "description": "Metadata-driven Copy activity from configured source objects into the finance Bronze layer.",
+  "parameters": {
+    "SourceObject": {
+      "type": "string",
+      "defaultValue": "example_source"
+    },
+    "TargetTable": {
+      "type": "string",
+      "defaultValue": "raw.source_data"
+    },
+    "LoadType": {
+      "type": "string",
+      "defaultValue": "incremental"
+    },
+    "WatermarkColumn": {
+      "type": "string",
+      "defaultValue": "updated_at"
+    }
+  },
+  "properties": {
+    "activities": [
+      {
+        "name": "ReadIngestionConfiguration",
+        "type": "Lookup",
+        "dependsOn": [],
+        "typeProperties": {
+          "source": {
+            "type": "LakehouseTableSource",
+            "tableName": "raw._sys_ingestion_config",
+            "query": "SELECT * FROM raw._sys_ingestion_config WHERE enabled = true AND source_name = '@{pipeline().parameters.SourceObject}'"
+          },
+          "firstRowOnly": true
+        }
+      },
+      {
+        "name": "CopySourceToBronze",
+        "type": "Copy",
+        "dependsOn": [
+          {
+            "activity": "ReadIngestionConfiguration",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "typeProperties": {
+          "source": {
+            "type": "BinarySource",
+            "storeSettings": {
+              "type": "LakehouseReadSettings",
+              "recursive": true
+            }
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "tableName": "@{pipeline().parameters.TargetTable}",
+            "writeBehavior": "Append"
+          }
+        }
+      }
+    ]
+  }
+}

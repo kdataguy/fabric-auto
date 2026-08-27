@@ -2,8 +2,8 @@
 # fabric-platform.yaml
 #
 # Input spec for generating a Microsoft Fabric `fab` CLI script that creates
-# workspaces AND the items inside them. Hand this to Claude → get a runnable
-# provision.sh. Nothing touches Fabric until you run that script.
+# workspaces AND the items inside them. Review the plan before running the
+# PowerShell provisioning entry point. Nothing touches Fabric until approval.
 #
 # Grounded in the architecture pattern spec:
 #   §15.2  workspace naming   ws-{org}-{domain}-{component}-{env}
@@ -27,39 +27,181 @@ environments:                             # §15.1 allows dev | tst | prd
 domains:                                  # each gets its own full workspace set
   - fin
 
+# --- Source control and ALM --------------------------------------------------
+# Replace the placeholder values before connecting workspaces to Azure DevOps.
+# Never store a PAT, client secret, or certificate in this file.
+git:
+  enabled: false
+  provider: azure_devops
+  organization: YOUR_ADO_ORGANIZATION
+  project: YOUR_ADO_PROJECT
+  repository: YOUR_ADO_REPOSITORY
+  branch: develop
+  workspace_directories:
+    engineering: fabric/engineering/{domain}/{env}
+    store: fabric/store/{domain}/{env}
+    analytics: fabric/analytics/{domain}/{env}
 
-# --- Workspace components (§15.2, Medium 3-type model) -----------------------
-# Each entry => ws-{org}-{domain}-{component}-{env}, holding the items listed.
-# Engineering consolidates core/ingest/prepare/orchestrate; analytics
-# consolidates model/present.
+# Fabric supports one workspace per deployment-pipeline stage, so the Medium
+# topology uses one dev-to-prd pipeline for each workspace type.
+deployment_pipelines:
+  enabled: false
+  pipelines:
+    - name: dp-{org}-{domain}-engineering
+      dev_workspace: ws-{org}-{domain}-engineering-dev
+      prd_workspace: ws-{org}-{domain}-engineering-prd
+    - name: dp-{org}-{domain}-store
+      dev_workspace: ws-{org}-{domain}-store-dev
+      prd_workspace: ws-{org}-{domain}-store-prd
+    - name: dp-{org}-{domain}-analytics
+      dev_workspace: ws-{org}-{domain}-analytics-dev
+      prd_workspace: ws-{org}-{domain}-analytics-prd
 
-components:
 
-  engineering:                            # core, ingest, prepare, orchestrate
-    variable_libraries:
-      - VL_CNFGS_{domain}_env
-    notebooks:
-      - NB_INGST_{domain}_example_source
-      - NB_TRNSF_{domain}_raw_to_base
-      - NB_TRNSF_{domain}_base_to_enriched
-    pipelines:
-      - DP_INGST_{domain}_landing_loader
-      - DP_ORCHS_{domain}_master
+# --- Explicit workspace and item names --------------------------------------
+# These are the names that will be created. Edit them directly; the runner
+# does not invent or expand workspace/item names.
+workspaces:
+  - name: ws-contoso-fin-engineering-dev
+    capacity: fadev01
+    items:
+      - name: VL_CNFGS_fin_env
+        type: VariableLibrary
+      - name: NB_INGST_fin_example_source
+        type: Notebook
+        ingestion_method: notebook
+        definition: notebooks/NB_INGST_fin_example_source.ipynb
+      - name: NB_TRNSF_fin_raw_to_base
+        type: Notebook
+        definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
+      - name: NB_TRNSF_fin_base_to_enriched
+        type: Notebook
+        definition: notebooks/NB_TRNSF_fin_base_to_enriched.ipynb
+      - name: NB_CNFGS_fin_initialize_metadata
+        type: Notebook
+        definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
+      - name: DP_INGST_fin_landing_loader
+        type: DataPipeline
+        ingestion_method: copy_activity
+        definition: pipelines/DP_INGST_fin_landing_loader.json
+      - name: DP_ORCHS_fin_master
+        type: DataPipeline
 
-  store:                                  # the medallion lakehouses
-    lakehouses:                           # -> LH_STORE_{domain}_{layer}
-      - landing                           # files only — no schema
-      - raw
-      - base
-      - enriched
-      - curated
-      - semantic
+  - name: ws-contoso-fin-store-dev
+    capacity: fadev01
+    items:
+      - name: LH_STORE_fin_landing
+        type: Lakehouse
+        enableSchemas: false
+      - name: LH_STORE_fin_raw
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_base
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_enriched
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_curated
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_semantic
+        type: Lakehouse
+        enableSchemas: true
 
-  analytics:                              # model and present
-    semantic_models:
-      - SM_ANLYZ_{domain}_financial
-    reports:
-      - RP_ANLYZ_{domain}_overview
+  - name: ws-contoso-fin-analytics-dev
+    capacity: fadev01
+    items:
+      - name: SM_ANLYZ_fin_financial
+        type: SemanticModel
+      - name: RP_ANLYZ_fin_overview
+        type: Report
+
+  - name: ws-contoso-fin-engineering-prd
+    capacity: fadev01
+    items:
+      - name: VL_CNFGS_fin_env
+        type: VariableLibrary
+      - name: NB_INGST_fin_example_source
+        type: Notebook
+        ingestion_method: notebook
+        definition: notebooks/NB_INGST_fin_example_source.ipynb
+      - name: NB_TRNSF_fin_raw_to_base
+        type: Notebook
+        definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
+      - name: NB_TRNSF_fin_base_to_enriched
+        type: Notebook
+        definition: notebooks/NB_TRNSF_fin_base_to_enriched.ipynb
+      - name: NB_CNFGS_fin_initialize_metadata
+        type: Notebook
+        definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
+      - name: DP_INGST_fin_landing_loader
+        type: DataPipeline
+        ingestion_method: copy_activity
+        definition: pipelines/DP_INGST_fin_landing_loader.json
+      - name: DP_ORCHS_fin_master
+        type: DataPipeline
+
+  - name: ws-contoso-fin-store-prd
+    capacity: fadev01
+    items:
+      - name: LH_STORE_fin_landing
+        type: Lakehouse
+        enableSchemas: false
+      - name: LH_STORE_fin_raw
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_base
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_enriched
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_curated
+        type: Lakehouse
+        enableSchemas: true
+      - name: LH_STORE_fin_semantic
+        type: Lakehouse
+        enableSchemas: true
+
+  - name: ws-contoso-fin-analytics-prd
+    capacity: fadev01
+    items:
+      - name: SM_ANLYZ_fin_financial
+        type: SemanticModel
+      - name: RP_ANLYZ_fin_overview
+        type: Report
+
+# --- Metadata-driven bronze/raw ingestion -----------------------------------
+# Control tables describe source objects, so one notebook can ingest many
+# sources without creating one notebook per source.
+metadata_bronze:
+  mode: prompt                         # prompt | notebook | copy_activity
+  options:
+    notebook_item: NB_INGST_fin_example_source
+    copy_pipeline_item: DP_INGST_fin_landing_loader
+  copy_activity:
+    parameters:
+      - SourceObject
+      - TargetTable
+      - LoadType
+      - WatermarkColumn
+    control_table: raw._sys_ingestion_config
+    watermark_table: raw._sys_watermark
+    pipeline_definition: pipelines/DP_INGST_fin_landing_loader.json
+  control_lakehouse: LH_STORE_fin_raw
+  source_registry_table: raw._sys_source_registry
+  ingestion_config_table: raw._sys_ingestion_config
+  watermark_table: raw._sys_watermark
+  run_log_table: raw._sys_run_log
+  sources:
+    - source_name: example_source
+      source_format: json
+      source_path: Files/incoming/finance
+      target_table: raw.source_data
+      load_type: incremental
+      watermark_column: updated_at
+      enabled: true
 
 
 # --- Platform-level workspace (§15.2 — no env suffix, not per-domain) --------

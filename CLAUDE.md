@@ -7,10 +7,10 @@ the `fab` CLI (the tool).
 
 ## Your role
 
-Generate `fab` CLI scripts that create Fabric **workspaces and the items
-inside them**, from `fabric-platform.yaml`. Write the script to
-`scripts/provision.sh` for review. Only execute it when the user explicitly
-says to run it.
+Generate a reviewable provisioning plan that creates Fabric **workspaces and
+the items inside them**, from `fabric-platform.yaml`. Use
+`scripts/provision.ps1` as the Windows entry point. Only execute it when the
+user explicitly says to run it.
 
 ## Source of truth
 
@@ -52,6 +52,10 @@ says to run it.
 - Assign capacity inline at workspace creation: `-P capacityName={capacity}`.
 - Create a lakehouse before any notebook/pipeline that attaches to it.
 - Expand `{domain}` / `{env}` templates: one full set per domain, per environment.
+- Keep Azure DevOps Git configuration and deployment-pipeline definitions separate
+  from workspace/item creation; credentials must never be stored in the spec.
+- Medium topology uses three dev-to-prd deployment pipelines because each pipeline
+  stage can contain only one workspace.
 
 ## Guardrails — never do these
 
