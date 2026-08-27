@@ -21,11 +21,12 @@ says to run it.
 
     ws-{org}-{domain}-{component}-{env}
 
-- `component`: core | ingest | store | prepare | orchestrate | model | present
+- `component`: engineering | store | analytics
 - `env`: dev | tst | prd
 - Platform monitoring workspace: `ws-{org}-platform-monitoring` (no env suffix).
-- **Medium tier** consolidates the seven into three: fold ingest+prepare+orchestrate+core
-  into `engineering`, and model+present into `analytics`, keeping `store`.
+- **Medium tier** uses three workspace types per environment: `engineering`, `store`,
+  and `analytics`. Engineering contains core/ingest/prepare/orchestrate items;
+  analytics contains model/present items.
 
 ## Item naming (spec §15.4)
 

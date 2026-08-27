@@ -51,7 +51,8 @@ conventions; theirs defines *how* to drive Fabric. They complement, not conflict
 
 ## Decisions still open (set these in the spec / context)
 
-- **Workspace model** — full 7-component, or Medium 3-type consolidation.
+- **Workspace model** — Medium 3-type consolidation: engineering, store, and analytics
+  across dev and prd (6 workspaces per domain).
 - **Item depth** — lakehouses only, the starter items, or full per-source expansion.
 - **Access** — whether provisioning should also assign Entra groups as workspace
   roles (the groups must pre-exist in Entra).
