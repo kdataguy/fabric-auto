@@ -67,10 +67,6 @@ workspaces:
     items:
       - name: vl_cnfgs_fin_env
         type: VariableLibrary
-      - name: nb_ingst_fin_example_source
-        type: Notebook
-        ingestion_method: notebook
-        definition: notebooks/NB_INGST_fin_example_source.ipynb
       - name: nb_trnsf_fin_raw_to_base
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
@@ -80,10 +76,6 @@ workspaces:
       - name: nb_cnfgs_fin_initialize_metadata
         type: Notebook
         definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
-      - name: dp_ingst_fin_landing_loader
-        type: DataPipeline
-        ingestion_method: copy_activity
-        definition: pipelines/DP_INGST_fin_landing_loader.json
       - name: dp_orchs_fin_master
         type: DataPipeline
 
@@ -108,6 +100,14 @@ workspaces:
       - name: lh_store_fin_semantic
         type: Lakehouse
         enableSchemas: true
+      - name: nb_ingst_fin_example_source
+        type: Notebook
+        ingestion_method: notebook
+        definition: notebooks/NB_INGST_fin_example_source.ipynb
+      - name: dp_ingst_fin_landing_loader
+        type: DataPipeline
+        ingestion_method: copy_activity
+        definition: pipelines/DP_INGST_fin_landing_loader.json
 
   - name: ws-contoso-fin-analytics-dev
     capacity: fadev01
@@ -122,10 +122,6 @@ workspaces:
     items:
       - name: vl_cnfgs_fin_env
         type: VariableLibrary
-      - name: nb_ingst_fin_example_source
-        type: Notebook
-        ingestion_method: notebook
-        definition: notebooks/NB_INGST_fin_example_source.ipynb
       - name: nb_trnsf_fin_raw_to_base
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
@@ -135,10 +131,6 @@ workspaces:
       - name: nb_cnfgs_fin_initialize_metadata
         type: Notebook
         definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
-      - name: dp_ingst_fin_landing_loader
-        type: DataPipeline
-        ingestion_method: copy_activity
-        definition: pipelines/DP_INGST_fin_landing_loader.json
       - name: dp_orchs_fin_master
         type: DataPipeline
 
@@ -163,6 +155,14 @@ workspaces:
       - name: lh_store_fin_semantic
         type: Lakehouse
         enableSchemas: true
+      - name: nb_ingst_fin_example_source
+        type: Notebook
+        ingestion_method: notebook
+        definition: notebooks/NB_INGST_fin_example_source.ipynb
+      - name: dp_ingst_fin_landing_loader
+        type: DataPipeline
+        ingestion_method: copy_activity
+        definition: pipelines/DP_INGST_fin_landing_loader.json
 
   - name: ws-contoso-fin-analytics-prd
     capacity: fadev01

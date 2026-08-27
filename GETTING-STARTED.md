@@ -215,7 +215,11 @@ To preview a specific Bronze option without being prompted:
 
 ```powershell
 .\scripts\provision.ps1 -Preview --ingestion-mode=notebook
-.\scripts\provision.ps1 -Preview --ingestion-mode=copy_activity
+  .\scripts\provision.ps1 -Preview --ingestion-mode=copy_activity
+
+The selected Bronze ingestion item is created in the `store` workspace beside
+the Bronze lakehouses. The `engineering` workspace contains transformations,
+configuration, and orchestration items.
 ```
 
 Review every workspace and item name in the output.
@@ -464,7 +468,8 @@ in Git. Deployment pipelines remain a separate manual ALM operation.
 
 ### Deleting a Workspace
 
-Use **Remove from plan** when you only want to change the local draft. Use
+Use **Remove from plan** when you only want to change the local draft; it acts
+immediately and does not call Fabric. Use
 **Delete in Fabric** only when you intend to permanently remove the workspace
 and every item inside it. The panel requires you to type the exact workspace
 name before calling `fab del`.

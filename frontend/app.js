@@ -107,7 +107,7 @@ async function loadCapacities(subscriptionId) {
 }
 
 function environment(name) {
-  return name.endsWith('-prd') ? 'prd' : name.endsWith('-dev') ? 'dev' : 'custom';
+  return name.endsWith('-prd') ? 'prd' : name.endsWith('-tst') ? 'tst' : name.endsWith('-dev') ? 'dev' : 'custom';
 }
 
 function itemName(item) {
@@ -136,6 +136,7 @@ function renderWorkspaces() {
       </div>
       <div class="workspace-actions">
         <button class="add-item" data-add-item="${workspaceIndex}">+ add item</button>
+        <button class="remove-workspace" data-remove-workspace="${workspaceIndex}">Remove from plan</button>
         <button class="delete-workspace" data-delete-workspace="${workspaceIndex}">Delete in Fabric</button>
       </div>
     </article>
@@ -166,6 +167,15 @@ function renderWorkspaces() {
   });
   grid.querySelectorAll('[data-delete-workspace]').forEach((button) => {
     button.addEventListener('click', () => deleteWorkspace(Number(button.dataset.deleteWorkspace)));
+  });
+  grid.querySelectorAll('[data-remove-workspace]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const workspaceIndex = Number(button.dataset.removeWorkspace);
+      const workspace = plan.workspaces[workspaceIndex];
+      plan.workspaces.splice(workspaceIndex, 1);
+      deployMessage.textContent = `${workspace.name} removed from the local plan. Fabric was not changed.`;
+      render();
+    });
   });
 }
 

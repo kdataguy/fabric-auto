@@ -42,7 +42,6 @@ def azure_capacities(subscription_id):
 
 def items_for(component, domain, mode):
     if component == "engineering":
-        notebook_definitions = domain == "fin"
         items = [
             {"name": f"vl_cnfgs_{domain}_env", "type": "VariableLibrary"},
             {"name": f"nb_trnsf_{domain}_raw_to_base", "type": "Notebook"},
@@ -50,19 +49,14 @@ def items_for(component, domain, mode):
             {"name": f"nb_cnfgs_{domain}_initialize_metadata", "type": "Notebook"},
             {"name": f"dp_orchs_{domain}_master", "type": "DataPipeline"},
         ]
-        if mode == "notebook":
-            ingestion_item = {"name": f"nb_ingst_{domain}_example_source", "type": "Notebook", "ingestion_method": "notebook"}
-            if notebook_definitions:
-                ingestion_item["definition"] = f"notebooks/NB_INGST_{domain}_example_source.ipynb"
-            items.insert(1, ingestion_item)
-        else:
-            ingestion_item = {"name": f"dp_ingst_{domain}_landing_loader", "type": "DataPipeline", "ingestion_method": "copy_activity"}
-            if notebook_definitions:
-                ingestion_item["definition"] = f"pipelines/DP_INGST_{domain}_landing_loader.json"
-            items.insert(1, ingestion_item)
         return items
     if component == "store":
-        return [{"name": f"lh_store_{domain}_{layer}", "type": "Lakehouse", "enableSchemas": layer != "landing"} for layer in ["landing", "raw", "base", "enriched", "curated", "semantic"]]
+        items = [{"name": f"lh_store_{domain}_{layer}", "type": "Lakehouse", "enableSchemas": layer != "landing"} for layer in ["landing", "raw", "base", "enriched", "curated", "semantic"]]
+        if mode == "notebook":
+            items.append({"name": f"nb_ingst_{domain}_example_source", "type": "Notebook", "ingestion_method": "notebook", "definition": f"notebooks/NB_INGST_{domain}_example_source.ipynb" if domain == "fin" else None})
+        else:
+            items.append({"name": f"dp_ingst_{domain}_landing_loader", "type": "DataPipeline", "ingestion_method": "copy_activity", "definition": f"pipelines/DP_INGST_{domain}_landing_loader.json" if domain == "fin" else None})
+        return [{key: value for key, value in item.items() if value is not None} for item in items]
     if component == "analytics":
         return [
             {"name": f"sm_anlyz_{domain}_financial", "type": "SemanticModel"},

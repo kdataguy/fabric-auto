@@ -68,14 +68,19 @@ The setup form lets you select any combination of:
 - Domains: one or more comma-separated domain names
 - Workspace types: `engineering`, `store`, and `analytics`
 
+When `store` is selected, its lakehouses and the selected Bronze ingestion item
+are included. The unselected Notebook or Copy activity alternative is omitted.
+
 The local `scripts/control-panel.py` backend generates the initial names and
 items from those choices. You can edit the generated names before downloading
 the plan or running the PowerShell provisioning workflow.
 
-Each workspace card has two different actions:
+Each workspace card has three different actions:
 
-- **Remove from plan**: remove an item from the local browser plan without
+- **Remove item**: remove an item from the local browser plan without
   changing Fabric.
+- **Remove from plan**: immediately remove the entire workspace from the local
+  browser plan without changing Fabric.
 - **Delete in Fabric**: permanently delete the workspace and all items inside
   it after typing the exact workspace name. This action is intentionally
   separate and destructive.

@@ -80,6 +80,8 @@ legend { margin-bottom: 8px; }
 .add-item { margin-top: 18px; border: 0; padding: 0; background: transparent; color: var(--orange); font: 12px 'DM Mono', monospace; }
 .workspace-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
 .workspace-actions .add-item { margin-top: 0; }
+.remove-workspace { border: 0; padding: 0; background: transparent; color: var(--muted); font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.remove-workspace:hover { color: var(--ink); text-decoration: underline; }
 .delete-workspace { border: 0; padding: 0; background: transparent; color: #a44835; font: 10px 'DM Mono', monospace; text-transform: uppercase; }
 .delete-workspace:hover { color: #732e24; text-decoration: underline; }
 .ingestion-section { padding: 66px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }

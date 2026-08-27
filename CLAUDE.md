@@ -53,6 +53,8 @@ user explicitly says to run it.
 - Create all workspaces before any items.
 - Assign capacity inline at workspace creation: `-P capacityName={capacity}`.
 - Create a lakehouse before any notebook/pipeline that attaches to it.
+- In the Medium topology, create the selected Bronze ingestion Notebook or Copy
+  activity in the `store` workspace with the lakehouses.
 - Expand `{domain}` / `{env}` templates: one full set per domain, per environment.
 - Keep Azure DevOps Git configuration and deployment-pipeline definitions separate
   from workspace/item creation; credentials must never be stored in the spec.
