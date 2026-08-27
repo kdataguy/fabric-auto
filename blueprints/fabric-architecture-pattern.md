@@ -1,5 +1,5 @@
 # Microsoft Fabric — Comprehensive Reference Architecture Pattern
-**Status:** Draft v0.5
+**Status:** Draft v0.5 — repository implementation profile documented below
 **Authors:** Alexander Arvidsson / Advania
 **Last updated:** 2026-03-09
 
@@ -32,6 +32,18 @@
 
 This document defines a **reference architecture pattern** for Microsoft Fabric-based data platforms. It is designed as a **sliding-scale, tier-based blueprint** that serves environments ranging from a single team using a minimal footprint, up to large enterprises operating complex, multi-domain, multi-environment data platforms.
 
+### Repository Implementation Profile
+
+This repository currently implements the **Medium tier with manual control**:
+
+- The active workspace topology is `engineering`, `store`, and `analytics` across user-selected environments, currently `dev` and `prd`.
+- Workspace and item names are explicitly authored by the user in `fabric-platform.yaml`. The local control panel may generate starter names, but the user can edit them before provisioning.
+- The local PowerShell provisioning workflow requires preview and confirmation before calling the Fabric CLI.
+- Bronze ingestion is a design choice made before provisioning: a parameterized Notebook or a metadata-driven Copy activity pipeline.
+- Azure DevOps Git, FabricOps content deployment, and Fabric deployment pipelines are separate optional lifecycle stages.
+
+The seven-component enterprise model, automatic FabricOps naming, and broader governance controls described later remain **reference guidance for future expansion**, not prerequisites for this repository's first deployment.
+
 The pattern is opinionated in the following ways:
 
 - Storage and compute are always based on **Microsoft Fabric Lakehouses** with a **Medallion architecture**.
@@ -59,15 +71,23 @@ The pattern is opinionated in the following ways:
 
 ### 2.2 Small Tier (S)
 
-A minimal, single-team environment designed for proof-of-concepts, departmental analytics, or organisations that do not yet require process-separated CI/CD or governance tooling. The entire platform runs on a single F2 capacity. All Fabric items live across three workspaces following the FabricOps layer model: a **core** workspace for shared infrastructure (fabutils, config), a **store** workspace containing all lakehouses and engineering notebooks, and a **present** workspace for semantic models, reports, and Organisational Apps. Despite its simplicity, the workspace structure uses the same FabricOps layer names as larger tiers, ensuring a clean upgrade path.
+A minimal, single-team environment designed for proof-of-concepts, departmental analytics, or organisations that do not yet require process-separated CI/CD or governance tooling. The reference small profile uses three workspaces: **core**, **store**, and **present**. This repository does not currently implement the small profile; its active profile is the Medium manual-control model described above.
 
 Upgrade trigger recommendations: when user count exceeds ~50 active consumers, when more than one business domain needs to be served, or when refresh schedules or compute contention begin to impact SLAs.
 
 ### 2.3 Medium Tier (M)
 
-The medium tier introduces a development environment alongside production, retaining the same three FabricOps workspace types as small (Core, Store, Present). FUAM (Fabric Unified Admin Monitoring) is deployed for consolidated capacity and admin monitoring in a dedicated platform monitoring workspace. A single capacity (minimum F8, F16 recommended) underpins the environment. A basic CI/CD pipeline using FabricOps automates deployments from dev to production. Purview is onboarded for cataloguing and lineage. The Ingest, Prepare, and Orchestrate component layers are consolidated into the Store workspace; the Model layer is consolidated into the Present workspace.
+The reference medium tier introduces development alongside production and consolidates the enterprise layers into three workspace types: **Store**, **Engineering**, and **Analytics**. FUAM (Fabric Unified Admin Monitoring) may be deployed in a dedicated monitoring workspace. A single capacity (minimum F8, F16 recommended) underpins the environment. A basic CI/CD pipeline using FabricOps can automate deployments from dev to production. In this repository, the active implementation uses `engineering`, `store`, and `analytics`, with Git and deployment pipelines kept optional and separately approved.
 
 Upgrade trigger recommendations: when workload peaks cause capacity contention, when multiple teams need isolated dev environments, or when audit/compliance requirements demand environment separation between dev and test.
+
+#### Repository choice: explicit names and manual approval
+
+The reference architecture can provision names through FabricOps configuration, but
+this repository deliberately keeps naming under operator control. The YAML contains
+an explicit `workspaces` list and explicit `items` lists. This supports a safer
+first-run workflow in which the operator selects the domain, environments, workspace
+types, and item names, previews the resulting operations, and approves the run.
 
 ---
 
@@ -273,14 +293,18 @@ Examples:
 
 **Pattern:** `ws-{org}-{domain}-{component}-{env}`
 
+For this repository's Medium profile, `{component}` is one of:
+
+```text
+engineering | store | analytics
+```
+
+The user-authored names in `fabric-platform.yaml` are authoritative. The pattern
+is a validation convention, not an instruction for the runner to overwrite names.
+
 **Components:**
-- `core` — Shared config / utilities per domain
-- `ingest` — Data in
-- `store` — Medallion lakehouses
-- `prepare` — Transforms between layers
-- `orchestrate` — Master pipeline
-- `model` — Semantic layer
-- `present` — Reports / apps
+- Medium repository profile: `engineering`, `store`, `analytics`
+- Enterprise reference profile: `core`, `ingest`, `store`, `prepare`, `orchestrate`, `model`, `present`
 
 **Environments:**
 - `dev` — Development
@@ -365,13 +389,13 @@ VL_CNFGS_fin_env
 
 ## Key Principles
 
-1. **Medallion Architecture** — Clear data layer separation (landing, raw, clean, transformed, consolidated, semantic)
-2. **Workspace Isolation** — Workspaces by component and environment, not by domain
-3. **Service Principal Driven** — No dependency on named individuals for automation
-4. **Git-Centric** — All code and configuration version-controlled
-5. **Infrastructure as Code** — Bicep/PowerShell for repeatability
-6. **Observability** — Centralized logging, monitoring, and alerting
-7. **Security First** — PIM-enabled access, RLS/OLS, encryption at rest/transit
+1. **Medallion Architecture** — Clear data layer separation; the active repository starter uses `landing`, `raw`, `base`, `enriched`, `curated`, and `semantic`, while `archive`, `clean`, `transformed`, and `consolidated` remain reference vocabulary for future alignment.
+2. **Workspace Isolation** — Workspaces by component and environment, with explicit names under operator control in the active repository profile.
+3. **Service Principal Driven** — No dependency on named individuals for unattended automation.
+4. **Git-Centric** — All code and configuration version-controlled when Git integration is enabled.
+5. **Infrastructure as Code** — Bicep/PowerShell for Azure resources; Fabric workspace/item deployment uses the Fabric CLI or REST APIs.
+6. **Observability** — Centralized logging, monitoring, and alerting.
+7. **Security First** — PIM-enabled access, RLS/OLS, encryption at rest/transit, and explicit approval for destructive operations.
 
 ---
 

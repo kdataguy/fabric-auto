@@ -65,111 +65,111 @@ workspaces:
   - name: ws-contoso-fin-engineering-dev
     capacity: fadev01
     items:
-      - name: VL_CNFGS_fin_env
+      - name: vl_cnfgs_fin_env
         type: VariableLibrary
-      - name: NB_INGST_fin_example_source
+      - name: nb_ingst_fin_example_source
         type: Notebook
         ingestion_method: notebook
         definition: notebooks/NB_INGST_fin_example_source.ipynb
-      - name: NB_TRNSF_fin_raw_to_base
+      - name: nb_trnsf_fin_raw_to_base
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
-      - name: NB_TRNSF_fin_base_to_enriched
+      - name: nb_trnsf_fin_base_to_enriched
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_base_to_enriched.ipynb
-      - name: NB_CNFGS_fin_initialize_metadata
+      - name: nb_cnfgs_fin_initialize_metadata
         type: Notebook
         definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
-      - name: DP_INGST_fin_landing_loader
+      - name: dp_ingst_fin_landing_loader
         type: DataPipeline
         ingestion_method: copy_activity
         definition: pipelines/DP_INGST_fin_landing_loader.json
-      - name: DP_ORCHS_fin_master
+      - name: dp_orchs_fin_master
         type: DataPipeline
 
   - name: ws-contoso-fin-store-dev
     capacity: fadev01
     items:
-      - name: LH_STORE_fin_landing
+      - name: lh_store_fin_landing
         type: Lakehouse
         enableSchemas: false
-      - name: LH_STORE_fin_raw
+      - name: lh_store_fin_raw
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_base
+      - name: lh_store_fin_base
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_enriched
+      - name: lh_store_fin_enriched
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_curated
+      - name: lh_store_fin_curated
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_semantic
+      - name: lh_store_fin_semantic
         type: Lakehouse
         enableSchemas: true
 
   - name: ws-contoso-fin-analytics-dev
     capacity: fadev01
     items:
-      - name: SM_ANLYZ_fin_financial
+      - name: sm_anlyz_fin_financial
         type: SemanticModel
-      - name: RP_ANLYZ_fin_overview
+      - name: rp_anlyz_fin_overview
         type: Report
 
   - name: ws-contoso-fin-engineering-prd
     capacity: fadev01
     items:
-      - name: VL_CNFGS_fin_env
+      - name: vl_cnfgs_fin_env
         type: VariableLibrary
-      - name: NB_INGST_fin_example_source
+      - name: nb_ingst_fin_example_source
         type: Notebook
         ingestion_method: notebook
         definition: notebooks/NB_INGST_fin_example_source.ipynb
-      - name: NB_TRNSF_fin_raw_to_base
+      - name: nb_trnsf_fin_raw_to_base
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_raw_to_base.ipynb
-      - name: NB_TRNSF_fin_base_to_enriched
+      - name: nb_trnsf_fin_base_to_enriched
         type: Notebook
         definition: notebooks/NB_TRNSF_fin_base_to_enriched.ipynb
-      - name: NB_CNFGS_fin_initialize_metadata
+      - name: nb_cnfgs_fin_initialize_metadata
         type: Notebook
         definition: notebooks/NB_CNFGS_fin_initialize_metadata.ipynb
-      - name: DP_INGST_fin_landing_loader
+      - name: dp_ingst_fin_landing_loader
         type: DataPipeline
         ingestion_method: copy_activity
         definition: pipelines/DP_INGST_fin_landing_loader.json
-      - name: DP_ORCHS_fin_master
+      - name: dp_orchs_fin_master
         type: DataPipeline
 
   - name: ws-contoso-fin-store-prd
     capacity: fadev01
     items:
-      - name: LH_STORE_fin_landing
+      - name: lh_store_fin_landing
         type: Lakehouse
         enableSchemas: false
-      - name: LH_STORE_fin_raw
+      - name: lh_store_fin_raw
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_base
+      - name: lh_store_fin_base
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_enriched
+      - name: lh_store_fin_enriched
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_curated
+      - name: lh_store_fin_curated
         type: Lakehouse
         enableSchemas: true
-      - name: LH_STORE_fin_semantic
+      - name: lh_store_fin_semantic
         type: Lakehouse
         enableSchemas: true
 
   - name: ws-contoso-fin-analytics-prd
     capacity: fadev01
     items:
-      - name: SM_ANLYZ_fin_financial
+      - name: sm_anlyz_fin_financial
         type: SemanticModel
-      - name: RP_ANLYZ_fin_overview
+      - name: rp_anlyz_fin_overview
         type: Report
 
 # --- Metadata-driven bronze/raw ingestion -----------------------------------
@@ -178,8 +178,8 @@ workspaces:
 metadata_bronze:
   mode: prompt                         # prompt | notebook | copy_activity
   options:
-    notebook_item: NB_INGST_fin_example_source
-    copy_pipeline_item: DP_INGST_fin_landing_loader
+    notebook_item: nb_ingst_fin_example_source
+    copy_pipeline_item: dp_ingst_fin_landing_loader
   copy_activity:
     parameters:
       - SourceObject
@@ -189,7 +189,7 @@ metadata_bronze:
     control_table: raw._sys_ingestion_config
     watermark_table: raw._sys_watermark
     pipeline_definition: pipelines/DP_INGST_fin_landing_loader.json
-  control_lakehouse: LH_STORE_fin_raw
+  control_lakehouse: lh_store_fin_raw
   source_registry_table: raw._sys_source_registry
   ingestion_config_table: raw._sys_ingestion_config
   watermark_table: raw._sys_watermark

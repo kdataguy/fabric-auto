@@ -14,7 +14,7 @@ user explicitly says to run it.
 
 ## Source of truth
 
-- `fabric-platform.yaml` — WHAT to build (org, domains, environments, capacity, components, items).
+- `fabric-platform.yaml` — WHAT to build (org, domains, environments, capacity, explicit workspaces, and items).
 - This file — HOW to name and build it (conventions + rules below).
 
 ## Workspace naming (spec §15.2)
@@ -27,14 +27,16 @@ user explicitly says to run it.
 - **Medium tier** uses three workspace types per environment: `engineering`, `store`,
   and `analytics`. Engineering contains core/ingest/prepare/orchestrate items;
   analytics contains model/present items.
+- The repository implementation profile keeps workspace and item names explicitly
+  user-authored. The naming pattern is validated but never used to overwrite names.
 
 ## Item naming (spec §15.4)
 
-    [TYPE]_[PURPOSE]_[freetext]        e.g. LH_STORE_fin_raw, DP_ORCHS_fin_master
+    [type]_[purpose]_[freetext]        e.g. lh_store_fin_raw, dp_orchs_fin_master
 
-- TYPE (uppercase): LH lakehouse, NB notebook, DP data pipeline, CJ copy job,
+- TYPE: lowercase prefix such as lh lakehouse, nb notebook, dp data pipeline, cj copy job,
   SM semantic model, RP report, WH warehouse, VL variable library, EN environment.
-- PURPOSE (5 chars): STORE, INGST, TRNSF, ORCHS, ANLYZ, MONIT, MAINT, CNFGS.
+- PURPOSE (5 chars): store, ingst, trnsf, orchs, anlyz, monit, maint, cnfgs.
 - freetext: lowercase_with_underscores, includes the domain.
 
 ## Medallion lakehouses (spec §5)
@@ -46,7 +48,7 @@ user explicitly says to run it.
 
 ## Generation rules
 
-- Non-interactive mode: `fab config set mode command_line`; every path fully
+- Fabric CLI 1.7+ uses command-line mode automatically; every path is fully
   qualified with its dot-suffix (`.Workspace`, `.Lakehouse`, `.Notebook`, ...).
 - Create all workspaces before any items.
 - Assign capacity inline at workspace creation: `-P capacityName={capacity}`.

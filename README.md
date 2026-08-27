@@ -1,8 +1,8 @@
 # Fabric Platform — AI Provisioning Setup
 
 An explicit, reviewable setup for Microsoft Fabric. You define every workspace
-and item name in a YAML spec, preview the plan, and approve provisioning from
-PowerShell.
+and lowercase item name in a YAML spec, preview the plan, and approve
+provisioning from PowerShell.
 
 ## How it works
 
@@ -25,6 +25,7 @@ pipelines are separate optional stages.
     │   └── validate.py        # Local/CI validation
     ├── notebooks/             # Fabric-compatible .ipynb definitions
     ├── .azure-pipelines/      # Optional Azure DevOps validation pipeline
+    ├── frontend/               # Local workspace/item planning control panel
     └── skills-for-fabric/     # optional: Microsoft's operational fab/az skills (git clone)
 
 ## Prerequisites
@@ -48,6 +49,46 @@ Its own `CLAUDE.md` and skills load alongside yours. Yours defines *your*
 conventions; theirs defines *how* to drive Fabric. They complement, not conflict.
 
 ## Usage
+
+### Local Control Panel
+
+Start the browser-based planning interface from PowerShell:
+
+  .\scripts\start-frontend.ps1
+
+Then open `http://localhost:8765`. The control panel is optional: it edits
+workspace/item names, selects Notebook or Copy activity, previews the plan,
+discovers Azure subscriptions and capacities, and downloads a JSON plan.
+Terminal deployment remains the recommended path, and the browser never stores
+credentials.
+
+The setup form lets you select any combination of:
+
+- Environments: `dev`, `tst`, and `prd`
+- Domains: one or more comma-separated domain names
+- Workspace types: `engineering`, `store`, and `analytics`
+
+The local `scripts/control-panel.py` backend generates the initial names and
+items from those choices. You can edit the generated names before downloading
+the plan or running the PowerShell provisioning workflow.
+
+Each workspace card has two different actions:
+
+- **Remove from plan**: remove an item from the local browser plan without
+  changing Fabric.
+- **Delete in Fabric**: permanently delete the workspace and all items inside
+  it after typing the exact workspace name. This action is intentionally
+  separate and destructive.
+
+After `az login`, the form discovers subscriptions and existing succeeded
+Fabric capacities through Azure CLI. Selecting a capacity updates the plan; it
+does not create a capacity.
+
+The **Deploy to Fabric** button is optional. It requires browser confirmation
+and invokes the local Fabric CLI through the backend. You can leave it unused
+and deploy entirely from the terminal. Azure DevOps Git is a separate confirmed
+action and uses the interactive Fabric authentication from the terminal; no PAT
+or service-principal secret is sent to the browser.
 
 1. Edit `fabric-platform.yaml` — choose workspace and item names directly.
 2. Validate the repository: `python scripts/validate.py`.

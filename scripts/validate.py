@@ -30,6 +30,8 @@ def main():
             item_type = item.get("type")
             if not item_name or not item_type:
                 raise ValueError(f"Every item needs name and type in {workspace_name}")
+            if item_name != item_name.lower():
+                raise ValueError(f"Item name must use lowercase letters: {item_name}")
             definition = item.get("definition")
             if definition:
                 notebook_count += 1

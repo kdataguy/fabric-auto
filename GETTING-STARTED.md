@@ -1,6 +1,8 @@
 # Fabric Auto - Getting Started
 
 This guide walks through the complete workflow for the current Fabric Auto setup.
+The supported deployment path is terminal-first. The frontend is optional and
+can be used to design and review a plan before deploying from the terminal.
 
 The design is intentionally hybrid:
 
@@ -31,9 +33,10 @@ fab --version
 
 Expected Fabric CLI version is currently `1.7.0` or newer.
 
-## 3. Authenticate
+## 3. Log In Through the Terminal
 
-Sign in to Azure:
+Sign in to Azure first. This is required before capacity discovery and frontend
+capacity selection:
 
 ```powershell
 az login
@@ -57,7 +60,10 @@ Verify Fabric access:
 fab dir
 ```
 
-## 4. Verify the Existing Capacity
+Do not start the frontend before completing `az login`. The frontend uses the
+Azure CLI session already established in this terminal.
+
+## 4. Verify and Select the Existing Capacity
 
 The capacity must already exist. This repository does not create capacities.
 
@@ -75,6 +81,9 @@ Current example:
 ```yaml
 capacity: fadev01
 ```
+
+The frontend can show this same list after you select a subscription, but it
+does not create capacities.
 
 ## 5. Choose Workspace and Item Names
 
@@ -95,10 +104,10 @@ analytics-prd
 
 You can edit the `workspaces` section to change names, add items, or remove items.
 
-Each item has a name and Fabric type:
+Each item has a lowercase name and a Fabric type:
 
 ```yaml
-- name: NB_INGST_fin_example_source
+- name: nb_ingst_fin_example_source
   type: Notebook
   definition: notebooks/NB_INGST_fin_example_source.ipynb
 ```
@@ -155,7 +164,27 @@ raw._sys_ingestion_config
 raw._sys_watermark
 ```
 
-## 7. Validate the Repository
+## 7. Optional Frontend Planning
+
+Start the frontend only after completing the terminal login steps:
+
+```powershell
+.\scripts\start-frontend.ps1
+```
+
+Open `http://localhost:8765`. Use it to select the Azure subscription and
+capacity, choose domains, environments, workspace types, and Bronze mode, then
+review or edit the generated names and items.
+
+The frontend is optional. It is not required for terminal deployment. Its
+**Save locally** action stores the current draft in browser storage, and
+**Download plan** creates a JSON export in your browser Downloads folder. These
+actions do not update `fabric-platform.yaml`.
+
+For the simplest and most controlled workflow, copy the final names into
+`fabric-platform.yaml` and deploy with the terminal commands below.
+
+## 8. Validate the Repository
 
 Run validation before provisioning:
 
@@ -174,7 +203,7 @@ This checks:
 - Bronze ingestion mode
 - Required Copy activity parameters
 
-## 8. Preview the Provisioning Plan
+## 9. Preview the Provisioning Plan
 
 Preview without changing Fabric:
 
@@ -191,7 +220,7 @@ To preview a specific Bronze option without being prompted:
 
 Review every workspace and item name in the output.
 
-## 9. Provision Workspaces and Items
+## 10. Provision Workspaces and Items
 
 Run the provisioning script only after reviewing the preview:
 
@@ -217,7 +246,7 @@ To skip the confirmation prompt for a deliberate automated run:
 
 Use this only when the YAML has already been reviewed.
 
-## 10. Verify Provisioning
+## 11. Verify Provisioning
 
 List Fabric workspaces:
 
@@ -227,7 +256,7 @@ fab dir
 
 Confirm that the expected development and production workspaces exist.
 
-## 11. Initialize Bronze Metadata
+## 12. Initialize Bronze Metadata
 
 Open the `NB_CNFGS_fin_initialize_metadata` notebook in the development engineering workspace and run it once.
 
@@ -259,12 +288,12 @@ enabled
 
 Do not use the example values unchanged unless they match your source.
 
-## 12. Test Bronze Ingestion in Development
+## 13. Test Bronze Ingestion in Development
 
 If you selected Notebook, run:
 
 ```text
-NB_INGST_fin_example_source
+nb_ingst_fin_example_source
 ```
 
 If you selected Copy activity, run:
@@ -275,18 +304,18 @@ DP_INGST_fin_landing_loader
 
 Test only in the development workspace first.
 
-## 13. Test Transformations
+## 14. Test Transformations
 
 After Bronze ingestion succeeds, run the transformation notebooks in order:
 
 ```text
-NB_TRNSF_fin_raw_to_base
-NB_TRNSF_fin_base_to_enriched
+nb_trnsf_fin_raw_to_base
+nb_trnsf_fin_base_to_enriched
 ```
 
 Update generic fields such as `record_id`, `amount`, `updated_at`, and source paths to match the real source schema.
 
-## 14. Optional Azure DevOps Integration
+## 15. Optional Azure DevOps Integration
 
 Keep this disabled until development testing succeeds:
 
@@ -322,7 +351,7 @@ The Azure DevOps validation pipeline is:
 .azure-pipelines/validate-fabric.yml
 ```
 
-## 15. Optional Deployment Pipelines
+## 16. Optional Deployment Pipelines
 
 Fabric deployment pipelines are also disabled by default:
 
@@ -348,7 +377,7 @@ deployment_pipelines:
 
 Deployment rules and parameter rules should be reviewed manually in the Fabric portal.
 
-## 16. Optional FabricOps Content Deployment
+## 17. Optional FabricOps Content Deployment
 
 The optional publisher is:
 
@@ -367,7 +396,7 @@ python scripts\deploy-content.py `
 
 The script asks for confirmation before publishing.
 
-## Recommended First Run
+## Recommended Terminal-First Run
 
 Use this order:
 
@@ -384,6 +413,21 @@ python scripts\validate.py
 
 Choose the Bronze method interactively and test everything in `dev` before enabling Azure DevOps or production deployment automation.
 
+## What Is Not Required for Terminal Deployment
+
+The following are optional and can remain unused:
+
+- `frontend/` and `scripts/control-panel.py`
+- `.azure-pipelines/validate-fabric.yml`
+- `scripts/deploy-content.py`
+- Azure DevOps Git integration
+- Fabric deployment pipelines
+- The nested `skills-for-fabric/` reference library
+
+The terminal-only deployment requires the local virtual environment, Azure CLI,
+Fabric CLI, `fabric-platform.yaml`, `scripts/validate.py`, and
+`scripts/provision.ps1`.
+
 ## What Is Not Automatic Yet
 
 The repository does not currently:
@@ -396,3 +440,106 @@ The repository does not currently:
 - Replace generic notebook paths and column names
 
 Those are intentionally separate steps so you can review and approve them manually.
+
+## Frontend Control Panel
+
+After `az login`, start the local control panel:
+
+```powershell
+.\scripts\start-frontend.ps1
+```
+
+Open `http://localhost:8765`. The panel discovers Azure subscriptions and
+existing succeeded Fabric capacities, then lets you select environments,
+domains, workspace types, and Bronze ingestion mode.
+
+You can edit generated workspace names, add or remove items, and review the
+plan. **Deploy to Fabric** requires a browser confirmation before the backend
+invokes the Fabric CLI. Azure DevOps Git uses a separate confirmation and never
+places PATs or service-principal secrets in the browser.
+
+The panel is a local control surface. It does not write the plan back to
+`fabric-platform.yaml`; keep the YAML updated when you want the design stored
+in Git. Deployment pipelines remain a separate manual ALM operation.
+
+### Deleting a Workspace
+
+Use **Remove from plan** when you only want to change the local draft. Use
+**Delete in Fabric** only when you intend to permanently remove the workspace
+and every item inside it. The panel requires you to type the exact workspace
+name before calling `fab del`.
+
+## Frontend and Backend Explained
+
+The local control panel has three layers:
+
+```text
+Browser frontend
+  -> local control-panel.py API
+  -> approved PowerShell/Python provisioning runner
+  -> Fabric CLI
+```
+
+### Frontend
+
+The files in `frontend/` provide the user interface. The browser lets you choose
+environments, domains, workspace types, and Bronze ingestion mode. It also lets
+you edit generated workspace names, remove items, add items, and review the
+commands that would be run.
+
+The browser does not have Fabric credentials and does not call Fabric directly.
+
+### Backend
+
+`scripts/control-panel.py` is a small local Python HTTP server. Its `/api/plan`
+endpoint receives your selections and returns a generated plan. It centralizes
+the starter item rules so the browser does not need to know how to construct
+every workspace and item.
+
+The backend currently generates plans only. It does not execute `fab`, write
+`fabric-platform.yaml`, or provision Fabric resources.
+
+### Save Locally
+
+The **Save locally** button uses browser `localStorage`. This means:
+
+- The current plan is saved only in this browser profile on this computer.
+- It survives a page refresh.
+- It is not committed to Git.
+- It is not written to `fabric-platform.yaml`.
+- Clearing browser site data removes it.
+
+Use **Download plan** when you want a portable file. That button creates
+`fabric-auto-plan.json` in the browser's normal Downloads location. It is a
+frontend plan export, not a Fabric API payload and not automatically consumable
+by `provision.py`.
+
+### Current Hybrid Handoff
+
+The current safe workflow is:
+
+1. Use the frontend to design and review a plan.
+2. Download the JSON or copy the chosen names into `fabric-platform.yaml`.
+3. Run `python scripts/validate.py`.
+4. Run `./scripts/provision.ps1 -Preview`.
+5. Approve the PowerShell prompt to call `fab`.
+
+This is hybrid because the frontend handles planning while the reviewed local
+runner handles deployment. It is intentionally not a one-click deployment.
+
+### Full Frontend-to-Backend Version
+
+The next evolution would add these backend endpoints:
+
+```text
+POST /api/plan       Generate a plan from selections
+POST /api/save-spec  Convert the approved plan to YAML on disk
+POST /api/validate   Run the repository validator
+POST /api/provision  Ask for explicit approval, then invoke provision.py
+GET  /api/status     Return the latest operation log
+```
+
+The backend should remain local or run in a protected service. It must keep
+Fabric credentials server-side, require an explicit confirmation before
+`/api/provision`, log the exact plan, and never accept arbitrary shell commands
+from the browser.
