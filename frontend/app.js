@@ -133,7 +133,7 @@ function workspaceDomain(name) {
 }
 
 function isGitSelected(workspace) {
-  return workspace.gitSelected !== false;
+  return workspace.gitSelected === true;
 }
 
 function syncBronzeItems(mode) {
