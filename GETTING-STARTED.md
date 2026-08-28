@@ -1,4 +1,4 @@
-# Fabric Auto - Getting Started
+# FabricFlow - Getting Started
 
 This guide walks through the complete workflow for the current Fabric Auto setup.
 The supported deployment path is terminal-first. The frontend is optional and
@@ -180,6 +180,10 @@ The frontend is optional. It is not required for terminal deployment. Its
 **Save locally** action stores the current draft in browser storage, and
 **Download plan** creates a JSON export in your browser Downloads folder. These
 actions do not update `fabric-platform.yaml`.
+
+The frontend only discovers and selects existing capacities. Capacity creation
+is outside this application and must be handled separately through approved
+Azure infrastructure procedures.
 
 For the simplest and most controlled workflow, copy the final names into
 `fabric-platform.yaml` and deploy with the terminal commands below.

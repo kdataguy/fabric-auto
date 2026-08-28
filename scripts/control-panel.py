@@ -220,7 +220,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/api/health":
-            self.send_json(200, {"status": "ok", "service": "fabric-auto-control-panel"})
+            self.send_json(200, {"status": "ok", "service": "fabricflow-control-panel"})
             return
         if path == "/api/azure/subscriptions":
             try:
@@ -262,5 +262,5 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print("Fabric Auto control panel: http://localhost:8765")
+    print("FabricFlow control panel: http://localhost:8765")
     ThreadingHTTPServer(("localhost", 8765), Handler).serve_forever()

@@ -8,6 +8,6 @@ if (-not (Test-Path $Python)) {
 }
 
 Start-Process $Url
-Write-Output "Fabric Auto frontend: $Url"
+Write-Output "FabricFlow frontend: $Url"
 Write-Output "Press Ctrl+C to stop the server."
 & $Python (Join-Path $Root "scripts\control-panel.py")

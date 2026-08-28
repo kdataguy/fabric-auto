@@ -89,6 +89,10 @@ After `az login`, the form discovers subscriptions and existing succeeded
 Fabric capacities through Azure CLI. Selecting a capacity updates the plan; it
 does not create a capacity.
 
+The frontend only discovers existing Fabric capacities. Capacity creation is
+outside this application and must be handled separately through approved Azure
+infrastructure procedures.
+
 The **Deploy to Fabric** button is optional. It requires browser confirmation
 and invokes the local Fabric CLI through the backend. You can leave it unused
 and deploy entirely from the terminal. Azure DevOps Git is a separate confirmed

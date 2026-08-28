@@ -41,7 +41,7 @@ const starterPlan = {
   ]
 };
 
-let plan = JSON.parse(localStorage.getItem('fabric-auto-plan') || 'null') || structuredClone(starterPlan);
+let plan = JSON.parse(localStorage.getItem('fabricflow-plan') || localStorage.getItem('fabric-auto-plan') || 'null') || structuredClone(starterPlan);
 const grid = document.querySelector('#workspaceGrid');
 const output = document.querySelector('#planOutput');
 const count = document.querySelector('#planCount');
@@ -50,6 +50,7 @@ const copyParameters = document.querySelector('#copyParameters');
 const formMessage = document.querySelector('#formMessage');
 const deployMessage = document.querySelector('#deployMessage');
 const gitMessage = document.querySelector('#gitMessage');
+const gitSelectionCount = document.querySelector('#gitSelectionCount');
 const progressPanel = document.querySelector('#progressPanel');
 const progressSummary = document.querySelector('#progressSummary');
 const progressPercent = document.querySelector('#progressPercent');
@@ -118,19 +119,65 @@ function itemType(item) {
   return Array.isArray(item) ? item[1] : item.type;
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+}
+
+function workspaceEnvironment(name) {
+  return ['dev', 'tst', 'prd'].find((value) => name.endsWith(`-${value}`)) || 'custom';
+}
+
+function workspaceDomain(name) {
+  const parts = name.split('-');
+  return parts.length > 4 ? parts.slice(2, -2).join('-') : 'fin';
+}
+
+function isGitSelected(workspace) {
+  return workspace.gitSelected !== false;
+}
+
+function syncBronzeItems(mode) {
+  plan.workspaces.forEach((workspace) => {
+    if (!workspace.name.includes('-store-')) return;
+    workspace.items = workspace.items.filter((item) => !['notebook', 'copy_activity'].includes(item.ingestion_method));
+    const domain = workspaceDomain(workspace.name);
+    if (mode === 'notebook') {
+      workspace.items.push({
+        name: `nb_ingst_${domain}_example_source`,
+        type: 'Notebook',
+        ingestion_method: 'notebook',
+        ...(domain === 'fin' ? { definition: 'notebooks/NB_INGST_fin_example_source.ipynb' } : {})
+      });
+    } else {
+      workspace.items.push({
+        name: `dp_ingst_${domain}_landing_loader`,
+        type: 'DataPipeline',
+        ingestion_method: 'copy_activity',
+        ...(domain === 'fin' ? { definition: 'pipelines/DP_INGST_fin_landing_loader.json' } : {})
+      });
+    }
+  });
+}
+
 function renderWorkspaces() {
+  gitSelectionCount.textContent = `${plan.workspaces.filter(isGitSelected).length} of ${plan.workspaces.length} workspaces selected`;
+  if (!plan.workspaces.length) {
+    grid.innerHTML = '<div class="empty-state"><strong>No workspaces in this plan</strong><span>Generate a scope above or add a workspace manually.</span></div>';
+    return;
+  }
   grid.innerHTML = plan.workspaces.map((workspace, workspaceIndex) => `
-    <article class="workspace-card">
+    <article class="workspace-card${isGitSelected(workspace) ? ' git-selected' : ''}">
       <header>
-        <input aria-label="Workspace name" data-workspace="${workspaceIndex}" value="${workspace.name}">
-        <span class="env-tag">${environment(workspace.name)}</span>
+        <div class="workspace-title"><label class="workspace-select"><input type="checkbox" data-git-workspace="${workspaceIndex}" ${isGitSelected(workspace) ? 'checked' : ''}><span>Include in Git</span></label><span class="workspace-kicker">WORKSPACE ${String(workspaceIndex + 1).padStart(2, '0')}</span><input aria-label="Workspace name" data-workspace="${workspaceIndex}" value="${escapeHtml(workspace.name)}"></div>
+        <span class="env-tag">${workspaceEnvironment(workspace.name)}</span>
       </header>
+      <div class="workspace-summary"><span>${workspace.items.length} items</span><span>${workspace.name.includes('-store-') ? (plan.mode === 'copy_activity' ? 'Copy activity' : 'Notebook') : 'Platform layer'}</span></div>
       <div class="item-list">
         ${workspace.items.map((item, itemIndex) => `
           <div class="item-row">
-            <span>${itemName(item)}</span>
-            <span class="item-type">${itemType(item)}</span>
-            <button class="remove-button" title="Remove item" aria-label="Remove ${itemName(item)}" data-remove="${workspaceIndex}:${itemIndex}">×</button>
+            <span>${escapeHtml(itemName(item))}</span>
+            <span class="item-type">${escapeHtml(itemType(item))}</span>
+            <button class="remove-button" title="Remove item" aria-label="Remove ${escapeHtml(itemName(item))}" data-remove="${workspaceIndex}:${itemIndex}">×</button>
           </div>
         `).join('')}
       </div>
@@ -145,6 +192,12 @@ function renderWorkspaces() {
   grid.querySelectorAll('[data-workspace]').forEach((input) => {
     input.addEventListener('change', (event) => {
       plan.workspaces[Number(event.target.dataset.workspace)].name = event.target.value.trim() || 'new-workspace';
+      render();
+    });
+  });
+  grid.querySelectorAll('[data-git-workspace]').forEach((input) => {
+    input.addEventListener('change', (event) => {
+      plan.workspaces[Number(event.target.dataset.gitWorkspace)].gitSelected = event.target.checked;
       render();
     });
   });
@@ -203,19 +256,20 @@ function renderPlan() {
   const selectedItems = plan.workspaces.flatMap((workspace) => workspace.items.map((item) => ({ workspace: workspace.name, name: itemName(item), type: itemType(item) })));
   count.textContent = `${plan.workspaces.length} workspaces · ${selectedItems.length} items`;
   capacityDisplay.textContent = plan.capacity;
-  output.textContent = selectedItems.map((item) => `fab create ${item.workspace}.Workspace/${item.name}.${item.type}`).join('\n');
+  output.textContent = selectedItems.length ? selectedItems.map((item) => `fab create ${item.workspace}.Workspace/${item.name}.${item.type}`).join('\n') : 'Generate a scope to see the provisioning commands.';
   copyParameters.hidden = plan.mode !== 'copy_activity';
   document.querySelectorAll('.choice-card').forEach((card) => card.classList.toggle('selected', card.dataset.mode === plan.mode));
 }
 
 function render() {
-  localStorage.setItem('fabric-auto-plan', JSON.stringify(plan));
+  localStorage.setItem('fabricflow-plan', JSON.stringify(plan));
   renderWorkspaces();
   renderPlan();
 }
 
 document.querySelectorAll('.choice-card').forEach((card) => card.addEventListener('click', () => {
   plan.mode = card.dataset.mode;
+  syncBronzeItems(plan.mode);
   render();
 }));
 
@@ -260,9 +314,14 @@ document.querySelector('#deployButton').addEventListener('click', async (event) 
 });
 
 document.querySelector('#connectGitButton').addEventListener('click', async () => {
-  if (!window.confirm('Connect these workspaces to Azure DevOps Git?')) return;
+  const selectedWorkspaces = plan.workspaces.filter(isGitSelected);
+  if (!selectedWorkspaces.length) {
+    gitMessage.textContent = 'Select at least one workspace first.';
+    return;
+  }
+  if (!window.confirm(`Connect ${selectedWorkspaces.length} selected workspace(s) to Azure DevOps Git?`)) return;
   gitMessage.textContent = 'Connecting...';
-  const response = await fetch('/api/git/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ organization: document.querySelector('#gitOrganization').value, project: document.querySelector('#gitProject').value, repository: document.querySelector('#gitRepository').value, branch: document.querySelector('#gitBranch').value, workspaces: plan.workspaces, confirm: true }) });
+  const response = await fetch('/api/git/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ organization: document.querySelector('#gitOrganization').value, project: document.querySelector('#gitProject').value, repository: document.querySelector('#gitRepository').value, branch: document.querySelector('#gitBranch').value, workspaces: selectedWorkspaces, confirm: true }) });
   const result = await response.json();
   gitMessage.textContent = response.ok ? `Git connected to ${result.workspaces.length} workspaces.` : `Git connection failed: ${result.error}`;
 });
@@ -274,7 +333,7 @@ document.querySelector('#addWorkspaceButton').addEventListener('click', () => {
 });
 
 document.querySelector('#saveButton').addEventListener('click', (event) => {
-  localStorage.setItem('fabric-auto-plan', JSON.stringify(plan));
+  localStorage.setItem('fabricflow-plan', JSON.stringify(plan));
   event.currentTarget.textContent = 'Saved';
   setTimeout(() => { event.currentTarget.textContent = 'Save locally'; }, 1200);
 });
@@ -284,7 +343,7 @@ document.querySelector('#downloadButton').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'fabric-auto-plan.json';
+  link.download = 'fabricflow-plan.json';
   link.click();
   URL.revokeObjectURL(url);
 });
