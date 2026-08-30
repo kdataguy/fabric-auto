@@ -127,6 +127,14 @@ For a FabricOps-style content repository, publish separately after provisioning:
 
   .\.venv\Scripts\python.exe scripts\deploy-content.py --workspace-name ws-contoso-fin-engineering-dev
 
+To run the content phase immediately after all workspaces and Fabric item shells
+are created, provide a FabricOps-compatible `solution/` directory and use:
+
+  .\scripts\provision.ps1 --publish-content
+
+The content phase is opt-in and always runs after the `fab create` operations.
+Without `solution/`, the command stops before making any Fabric changes.
+
 The content publisher requires a `solution/` directory in FabricOps item format.
 The local `notebooks/` files remain the source definitions until they are placed
 in that structure or uploaded through the Fabric Notebook definition API.

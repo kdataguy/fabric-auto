@@ -101,6 +101,39 @@ def run_fab(path, params):
         raise RuntimeError(f"Fabric CLI failed with exit code {result.returncode}: {path}")
 
 
+def workspace_environment(name):
+    for environment in ("dev", "tst", "prd"):
+        if name.endswith(f"-{environment}"):
+            return environment
+    return "dev"
+
+
+def publish_content(workspaces):
+    publisher = ROOT / "scripts" / "deploy-content.py"
+    repository = ROOT / "solution"
+    if not repository.is_dir():
+        raise FileNotFoundError(
+            f"Content publishing requires a FabricOps solution directory: {repository}"
+        )
+
+    for workspace in workspaces:
+        command = [
+            sys.executable,
+            str(publisher),
+            "--repository-directory",
+            "solution",
+            "--workspace-name",
+            workspace["name"],
+            "--environment",
+            workspace_environment(workspace["name"]),
+            "--yes",
+        ]
+        print("Publishing content:", " ".join(command))
+        result = subprocess.run(command, cwd=ROOT)
+        if result.returncode:
+            raise RuntimeError(f"Content publishing failed: {workspace['name']}")
+
+
 def main():
     if not FAB_PATH.is_file():
         raise FileNotFoundError(f"Fabric CLI not found at {FAB_PATH}")
@@ -108,6 +141,11 @@ def main():
     spec, workspaces = load_spec()
     validate(spec, workspaces)
     ingestion_mode = select_ingestion_mode(spec)
+    publish_requested = "--publish-content" in sys.argv
+    if publish_requested and not (ROOT / "solution").is_dir():
+        raise FileNotFoundError(
+            f"Content publishing requires a FabricOps solution directory: {ROOT / 'solution'}"
+        )
     operations = build_operations(spec, workspaces, ingestion_mode)
 
     print(f"Selected bronze ingestion: {ingestion_mode}")
@@ -117,9 +155,11 @@ def main():
         print(f"  fab create {path}{suffix}")
     print(f"\n{len(workspaces)} workspaces and {len(operations) - len(workspaces)} items will be processed.")
 
-    if "--preview" in sys.argv:
+    if "--preview" in sys.argv or "-Preview" in sys.argv:
+        if publish_requested:
+            print("Content publishing phase: after all Fabric workspaces and items")
         return
-    if "--yes" not in sys.argv:
+    if "--yes" not in sys.argv and "-Yes" not in sys.argv:
         answer = input("Proceed with this provisioning plan? [y/N] ").strip().lower()
         if answer != "y":
             print("Cancelled. No Fabric resources were changed.")
@@ -127,6 +167,8 @@ def main():
 
     for path, params in operations:
         run_fab(path, params)
+    if publish_requested:
+        publish_content(workspaces)
     print("Provisioning complete.")
 
 

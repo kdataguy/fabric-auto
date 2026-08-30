@@ -246,6 +246,17 @@ The script creates:
 
 Lakehouses are created before dependent notebooks and pipelines.
 
+The provisioning step creates Fabric workspaces and item shells. To publish
+definitions from a FabricOps-compatible `solution/` directory after those
+shells exist, run:
+
+```powershell
+.\scripts\provision.ps1 -PublishContent
+```
+
+Content publishing is opt-in and runs only after all `fab create` operations.
+If `solution/` is missing, the command stops before changing Fabric.
+
 To skip the confirmation prompt for a deliberate automated run:
 
 ```powershell

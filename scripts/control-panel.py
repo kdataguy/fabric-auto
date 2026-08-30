@@ -8,12 +8,41 @@ import threading
 import uuid
 from urllib.parse import urlparse
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 FAB = ROOT / ".venv" / "Scripts" / "fab.exe"
 AZ = shutil.which("az.cmd") or shutil.which("az") or str(Path("C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd"))
 JOBS = {}
+
+
+def data_sources():
+    with (ROOT / "fabric-platform.yaml").open(encoding="utf-8") as spec_file:
+        spec = yaml.safe_load(spec_file) or {}
+    metadata = spec.get("metadata_bronze", {})
+    return [
+        {
+            "name": source.get("source_name", "unknown"),
+            "format": source.get("source_format", "unknown"),
+            "path": source.get("source_path", ""),
+            "target": source.get("target_table", ""),
+            "loadType": source.get("load_type", "unknown"),
+            "watermark": source.get("watermark_column", ""),
+            "enabled": source.get("enabled", False),
+            "objects": [{
+                "name": source.get("source_name", "unknown"),
+                "target": source.get("target_table", ""),
+                "fields": [
+                    {"name": source.get("watermark_column", "updated_at"), "role": "incremental watermark", "stories": ["freshness", "change tracking"]},
+                    {"name": "record_id", "role": "business key", "stories": ["deduplication", "record lookup"]},
+                    {"name": "amount", "role": "measure", "stories": ["financial totals", "trend analysis"]},
+                ],
+            }],
+        }
+        for source in metadata.get("sources", [])
+    ]
 
 
 def run_command(command):
@@ -83,7 +112,7 @@ def build_plan(payload):
                     "capacity": capacity,
                     "items": items_for(component, domain, mode),
                 })
-    return {"org": org, "capacity": capacity, "domains": domains, "environments": environments, "components": components, "mode": mode, "workspaces": workspaces}
+    return {"org": org, "capacity": capacity, "domains": domains, "environments": environments, "components": components, "mode": mode, "workspaces": workspaces, "dataSources": data_sources()}
 
 
 def provision_plan(plan, job_id=None):
