@@ -1,0 +1,226 @@
+{
+  "org": "contoso",
+  "capacity": "fadev01",
+  "domains": [
+    "fin"
+  ],
+  "environments": [
+    "dev",
+    "tst"
+  ],
+  "components": [
+    "engineering",
+    "store",
+    "analytics"
+  ],
+  "mode": "copy_activity",
+  "workspaces": [
+    {
+      "name": "ws-contoso-fin-engineering-dev",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "vl_cnfgs_fin_env",
+          "type": "VariableLibrary"
+        },
+        {
+          "name": "nb_trnsf_fin_raw_to_base",
+          "type": "Notebook"
+        },
+        {
+          "name": "nb_trnsf_fin_base_to_enriched",
+          "type": "Notebook"
+        },
+        {
+          "name": "nb_cnfgs_fin_initialize_metadata",
+          "type": "Notebook"
+        },
+        {
+          "name": "dp_orchs_fin_master",
+          "type": "DataPipeline"
+        }
+      ]
+    },
+    {
+      "name": "ws-contoso-fin-store-dev",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "lh_store_fin_landing",
+          "type": "Lakehouse",
+          "enableSchemas": false
+        },
+        {
+          "name": "lh_store_fin_raw",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_base",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_enriched",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_curated",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_semantic",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "dp_ingst_fin_landing_loader",
+          "type": "DataPipeline",
+          "ingestion_method": "copy_activity",
+          "definition": "pipelines/DP_INGST_fin_landing_loader.json"
+        }
+      ]
+    },
+    {
+      "name": "ws-contoso-fin-analytics-dev",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "sm_anlyz_fin_financial",
+          "type": "SemanticModel"
+        },
+        {
+          "name": "rp_anlyz_fin_overview",
+          "type": "Report"
+        }
+      ]
+    },
+    {
+      "name": "ws-contoso-fin-engineering-tst",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "vl_cnfgs_fin_env",
+          "type": "VariableLibrary"
+        },
+        {
+          "name": "nb_trnsf_fin_raw_to_base",
+          "type": "Notebook"
+        },
+        {
+          "name": "nb_trnsf_fin_base_to_enriched",
+          "type": "Notebook"
+        },
+        {
+          "name": "nb_cnfgs_fin_initialize_metadata",
+          "type": "Notebook"
+        },
+        {
+          "name": "dp_orchs_fin_master",
+          "type": "DataPipeline"
+        }
+      ]
+    },
+    {
+      "name": "ws-contoso-fin-store-tst",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "lh_store_fin_landing",
+          "type": "Lakehouse",
+          "enableSchemas": false
+        },
+        {
+          "name": "lh_store_fin_raw",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_base",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_enriched",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_curated",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "lh_store_fin_semantic",
+          "type": "Lakehouse",
+          "enableSchemas": true
+        },
+        {
+          "name": "dp_ingst_fin_landing_loader",
+          "type": "DataPipeline",
+          "ingestion_method": "copy_activity",
+          "definition": "pipelines/DP_INGST_fin_landing_loader.json"
+        }
+      ]
+    },
+    {
+      "name": "ws-contoso-fin-analytics-tst",
+      "capacity": "fadev01",
+      "items": [
+        {
+          "name": "sm_anlyz_fin_financial",
+          "type": "SemanticModel"
+        },
+        {
+          "name": "rp_anlyz_fin_overview",
+          "type": "Report"
+        }
+      ]
+    }
+  ],
+  "dataSources": [
+    {
+      "name": "example_source",
+      "format": "json",
+      "path": "Files/incoming/finance",
+      "target": "raw.source_data",
+      "loadType": "incremental",
+      "watermark": "updated_at",
+      "enabled": true,
+      "objects": [
+        {
+          "name": "example_source",
+          "target": "raw.source_data",
+          "fields": [
+            {
+              "name": "updated_at",
+              "role": "incremental watermark",
+              "stories": [
+                "freshness",
+                "change tracking"
+              ]
+            },
+            {
+              "name": "record_id",
+              "role": "business key",
+              "stories": [
+                "deduplication",
+                "record lookup"
+              ]
+            },
+            {
+              "name": "amount",
+              "role": "measure",
+              "stories": [
+                "financial totals",
+                "trend analysis"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

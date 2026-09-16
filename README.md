@@ -93,6 +93,25 @@ The frontend only discovers existing Fabric capacities. Capacity creation is
 outside this application and must be handled separately through approved Azure
 infrastructure procedures.
 
+### Platform extensions
+
+The control panel supports plan import/export, automatic validation, exact
+dry-run command previews, and local deployment history. Completed deployments
+are recorded under `.fabricflow/`, which is ignored by Git. A recorded
+deployment can be rolled back only with explicit confirmation because rollback
+deletes its workspaces.
+
+The provisioning schema accepts `Lakehouse`, `Warehouse`, `Notebook`,
+`DataPipeline`, `Dataflow`, `DataflowGen2`, `Eventstream`, `SemanticModel`,
+`Report`, and `VariableLibrary` item types.
+
+`fabric-platform.yaml` contains opt-in configuration sections for
+`workspace_permissions` (Entra groups and Fabric roles), `key_vault` (secret
+references only), `monitoring` (Log Analytics categories), `tenants` (tenant
+and subscription targets), and `deployment_history`. These are planning and
+configuration surfaces until the required Azure and Fabric permissions are
+supplied. Credentials are never stored in the browser or YAML file.
+
 The **Deploy to Fabric** button is optional. It requires browser confirmation
 and invokes the local Fabric CLI through the backend. You can leave it unused
 and deploy entirely from the terminal. Azure DevOps Git is a separate confirmed

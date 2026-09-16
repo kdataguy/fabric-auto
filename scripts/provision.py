@@ -25,6 +25,7 @@ def validate(spec, workspaces):
         raise ValueError("A real existing capacity is required")
 
     workspace_names = set()
+    valid_types = {"VariableLibrary", "Notebook", "DataPipeline", "Lakehouse", "Warehouse", "SemanticModel", "Report", "Dataflow", "DataflowGen2", "Eventstream"}
     for workspace in workspaces:
         name = workspace.get("name")
         if not name or name in workspace_names:
@@ -33,6 +34,10 @@ def validate(spec, workspaces):
         for item in workspace.get("items", []):
             if not item.get("name") or not item.get("type"):
                 raise ValueError(f"Every item needs name and type in workspace {name}")
+            if item["type"] not in valid_types:
+                raise ValueError(f"Unsupported Fabric item type in {name}: {item['type']}")
+            if item["name"] != item["name"].lower():
+                raise ValueError(f"Item name must use lowercase letters: {item['name']}")
             definition = item.get("definition")
             if definition and not (ROOT / definition).is_file():
                 raise ValueError(f"Notebook definition not found: {definition}")
@@ -43,6 +48,18 @@ def validate(spec, workspaces):
     for parameter in bronze.get("copy_activity", {}).get("parameters", []):
         if not parameter or not parameter.replace("_", "").isalnum():
             raise ValueError(f"Invalid Copy activity parameter: {parameter}")
+
+    permissions = spec.get("workspace_permissions", {})
+    valid_roles = {"Admin", "Member", "Contributor", "Viewer"}
+    for assignment in permissions.get("assignments", []):
+        if assignment.get("role") not in valid_roles:
+            raise ValueError(f"Unsupported Fabric workspace role: {assignment.get('role')}")
+        if not assignment.get("group_id"):
+            raise ValueError("Every workspace permission assignment needs group_id")
+
+    for tenant in spec.get("tenants", []):
+        if tenant.get("enabled") and (not tenant.get("tenant_id") or not tenant.get("subscription_id")):
+            raise ValueError(f"Enabled tenant target needs tenant_id and subscription_id: {tenant.get('name')}")
 
 
 def build_operations(spec, workspaces, ingestion_mode):

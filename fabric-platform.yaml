@@ -27,6 +27,39 @@ environments:                             # §15.1 allows dev | tst | prd
 domains:                                  # each gets its own full workspace set
   - fin
 
+# --- Azure targets and identity --------------------------------------------
+# These are references only. FabricFlow never stores client secrets here.
+tenants:
+  - name: primary
+    tenant_id: YOUR_TENANT_ID
+    subscription_id: YOUR_SUBSCRIPTION_ID
+    enabled: false
+
+workspace_permissions:
+  enabled: false
+  assignments:
+    - workspace: ws-{org}-{domain}-engineering-{env}
+      group_id: YOUR_ENTRA_GROUP_ID
+      group_name: platform-engineers
+      role: Member                    # Admin | Member | Contributor | Viewer
+
+key_vault:
+  enabled: false
+  name: YOUR_KEY_VAULT_NAME
+  subscription_id: YOUR_SUBSCRIPTION_ID
+  secret_references:
+    - name: source-connection
+      secret_name: source-connection-string
+
+monitoring:
+  enabled: false
+  workspace_id: YOUR_LOG_ANALYTICS_WORKSPACE_ID
+  collect: [pipeline_runs, notebook_runs, refreshes, capacity_metrics]
+
+deployment_history:
+  enabled: true
+  path: .fabricflow/deployment-history.json
+
 # --- Source control and ALM --------------------------------------------------
 # Replace the placeholder values before connecting workspaces to Azure DevOps.
 # Never store a PAT, client secret, or certificate in this file.
@@ -211,3 +244,39 @@ platform_workspaces:
   monitoring:
     lakehouses:
       - LH_MONIT_platform_ops
+
+# --- Data Classification & Policy ----------------------------------------
+# Define classification labels and apply them to items. For documentation and
+# governance. Classifications are metadata-only; they do NOT enforce access control.
+#
+# classification_label: a brief tag (e.g., PII, Public, Confidential, Financial)
+# items: list of item names from workspaces above that carry this classification
+
+classifications:
+  PII:
+    label: "Personally Identifiable Information"
+    description: "Contains customer names, emails, addresses, SSNs, or similar"
+    color: "#d32f2f"  # Red
+    items:
+      - lh_store_fin_raw
+      - lh_store_fin_landing
+      - nb_ingst_fin_example_source
+  
+  Confidential:
+    label: "Confidential / Internal Only"
+    description: "Restricted to finance team; contains sensitive metrics"
+    color: "#f57c00"  # Orange
+    items:
+      - lh_store_fin_base
+      - lh_store_fin_enriched
+      - sm_anlyz_fin_financial
+      - nb_trnsf_fin_raw_to_base
+      - nb_trnsf_fin_base_to_enriched
+  
+  Public:
+    label: "Public / Shareable"
+    description: "Can be shared externally; no sensitive data"
+    color: "#388e3c"  # Green
+    items:
+      - lh_store_fin_curated
+      - rp_anlyz_fin_overview

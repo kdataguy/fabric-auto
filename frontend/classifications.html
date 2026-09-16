@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Classifications & Policy — FabricFlow</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .classification-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .classification-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .classification-color {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .classification-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .classification-description {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .classification-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .item-tag {
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: monospace;
+    }
+
+    .item-count {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .classifications-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+    }
+
+    .section-intro {
+      margin-bottom: 2rem;
+    }
+
+    .section-intro h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--ink);
+    }
+
+    .section-intro p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .policy-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .policy-panel h3 {
+      margin-top: 0;
+      color: var(--ink);
+    }
+
+    .policy-list {
+      margin: 0;
+      padding-left: 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .loading {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem;
+    }
+
+    .error {
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      border-radius: 4px;
+      padding: 1rem;
+      color: #c62828;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">← Back to Provisioning</a>
+  </nav>
+
+  <div class="container">
+    <h1>Data Classifications & Policy</h1>
+
+    <div class="section-intro">
+      <h3>Classification Overview</h3>
+      <p>
+        Data classifications are metadata labels applied to Fabric items to document sensitivity levels.
+        They guide data handling practices and access governance. Classifications are <strong>for documentation only</strong>
+        and do not automatically enforce access control in Fabric.
+      </p>
+    </div>
+
+    <div id="error-container"></div>
+    <div id="loading" class="loading">Loading classifications…</div>
+    <div id="classifications-container" style="display: none;"></div>
+
+    <div class="policy-panel">
+      <h3>Classification Policy</h3>
+      <ul class="policy-list">
+        <li><strong>PII (Personally Identifiable Information):</strong> Contains names, emails, SSNs, or customer identifiers. Restricted access; data retention policies apply.</li>
+        <li><strong>Confidential:</strong> Internal business data; restricted to domain teams. Sensitive metrics, financial data, or competitive information.</li>
+        <li><strong>Public:</strong> No sensitive data. Can be shared externally. Suitable for dashboards and reports.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    async function loadClassifications() {
+      try {
+        const response = await fetch("/api/classifications");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const classifications = await response.json();
+
+        const container = document.getElementById("classifications-container");
+        const loading = document.getElementById("loading");
+        const errorContainer = document.getElementById("error-container");
+
+        if (!classifications || classifications.length === 0) {
+          container.innerHTML = '<div class="empty-state">No classifications defined in fabric-platform.yaml</div>';
+        } else {
+          const grid = document.createElement("div");
+          grid.className = "classifications-grid";
+          grid.innerHTML = classifications
+            .map((c) => {
+              const itemsHtml =
+                c.items.length > 0
+                  ? `<div class="classification-items">${c.items
+                      .map((item) => `<div class="item-tag">${item}</div>`)
+                      .join("")}</div>`
+                  : '<div class="item-count">No items classified</div>';
+              return `
+            <div class="classification-card">
+              <div class="classification-header">
+                <div class="classification-color" style="background-color: ${c.color}"></div>
+                <div>
+                  <div class="classification-title">${escapeHtml(c.label)}</div>
+                  <div class="item-count">${c.itemCount} item(s)</div>
+                </div>
+              </div>
+              <div class="classification-description">${escapeHtml(c.description)}</div>
+              ${itemsHtml}
+            </div>
+          `;
+            })
+            .join("");
+          container.appendChild(grid);
+        }
+
+        loading.style.display = "none";
+        container.style.display = "block";
+      } catch (error) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error-container").innerHTML = `<div class="error">Failed to load classifications: ${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    document.addEventListener("DOMContentLoaded", loadClassifications);
+  </script>
+</body>
+</html>

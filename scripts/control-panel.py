@@ -1,4 +1,5 @@
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+﻿from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -14,8 +15,57 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 FAB = ROOT / ".venv" / "Scripts" / "fab.exe"
-AZ = shutil.which("az.cmd") or shutil.which("az") or str(Path("C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd"))
+AZ = (
+    shutil.which("az.cmd")
+    or shutil.which("az")
+    or next(
+        (
+            path
+            for path in (
+                Path("C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd"),
+                Path("C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd"),
+            )
+            if path.is_file()
+        ),
+        "az.cmd",
+    )
+)
 JOBS = {}
+HISTORY_PATH = ROOT / ".fabricflow" / "deployment-history.json"
+
+
+def azure_tenants():
+    if not Path(AZ).is_file():
+        raise RuntimeError("Azure CLI was not found")
+    accounts = run_command([AZ, "account", "list", "--all", "--query", "[].{tenantId:tenantId,state:state}", "-o", "json"])
+    tenants = {}
+    for account in accounts:
+        tenant_id = account.get("tenantId")
+        if not tenant_id:
+            continue
+        tenant = tenants.setdefault(tenant_id, {"tenantId": tenant_id, "subscriptions": 0, "enabledSubscriptions": 0})
+        tenant["subscriptions"] += 1
+        if account.get("state") == "Enabled":
+            tenant["enabledSubscriptions"] += 1
+    return sorted(tenants.values(), key=lambda tenant: (-tenant["enabledSubscriptions"], tenant["tenantId"]))
+
+
+def classifications_data():
+    """Load classifications and mapped items from fabric-platform.yaml"""
+    with (ROOT / "fabric-platform.yaml").open(encoding="utf-8") as spec_file:
+        spec = yaml.safe_load(spec_file) or {}
+    classifications = spec.get("classifications", {})
+    result = []
+    for label, details in classifications.items():
+        result.append({
+            "key": label,
+            "label": details.get("label", label),
+            "description": details.get("description", ""),
+            "color": details.get("color", "#999999"),
+            "itemCount": len(details.get("items", [])),
+            "items": details.get("items", []),
+        })
+    return result
 
 
 def data_sources():
@@ -45,6 +95,18 @@ def data_sources():
     ]
 
 
+def platform_config():
+    with (ROOT / "fabric-platform.yaml").open(encoding="utf-8") as spec_file:
+        spec = yaml.safe_load(spec_file) or {}
+    return {
+        "tenants": spec.get("tenants", []),
+        "workspacePermissions": spec.get("workspace_permissions", {}),
+        "keyVault": {key: value for key, value in spec.get("key_vault", {}).items() if key != "secret_references"},
+        "monitoring": spec.get("monitoring", {}),
+        "deploymentHistory": spec.get("deployment_history", {}),
+    }
+
+
 def run_command(command):
     result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
     if result.returncode:
@@ -55,7 +117,14 @@ def run_command(command):
 def azure_subscriptions():
     if not Path(AZ).is_file():
         raise RuntimeError("Azure CLI was not found. Restart the control panel after installing Azure CLI.")
-    return run_command([AZ, "account", "list", "--query", "[].{id:id,name:name,state:state}", "-o", "json"])
+    current = run_command([AZ, "account", "show", "--query", "{id:id,name:name,state:state}", "-o", "json"])
+    subscriptions = run_command([AZ, "account", "list", "--all", "--query", "[].{id:id,name:name,state:state}", "-o", "json"])
+    subscriptions = [subscription for subscription in subscriptions if subscription.get("state") == "Enabled"]
+    if current.get("id"):
+        subscriptions.sort(key=lambda subscription: subscription.get("id") != current["id"])
+    if subscriptions:
+        return subscriptions
+    return [current] if current.get("id") else []
 
 
 def azure_capacities(subscription_id):
@@ -115,11 +184,102 @@ def build_plan(payload):
     return {"org": org, "capacity": capacity, "domains": domains, "environments": environments, "components": components, "mode": mode, "workspaces": workspaces, "dataSources": data_sources()}
 
 
+def validate_plan(plan):
+    errors = []
+    warnings = []
+    valid_types = {"VariableLibrary", "Notebook", "DataPipeline", "Lakehouse", "Warehouse", "SemanticModel", "Report", "Dataflow", "DataflowGen2", "Eventstream"}
+    workspaces = plan.get("workspaces", []) if isinstance(plan, dict) else []
+    if not isinstance(workspaces, list) or not workspaces:
+        errors.append("A plan must contain at least one workspace")
+        return {"valid": False, "errors": errors, "warnings": warnings}
+    if not str(plan.get("capacity", "")).strip():
+        errors.append("A Fabric capacity is required")
+
+    workspace_names = set()
+    item_keys = set()
+    for workspace in workspaces:
+        name = str(workspace.get("name", "")).strip()
+        if not name:
+            errors.append("Every workspace needs a name")
+            continue
+        if name in workspace_names:
+            errors.append(f"Duplicate workspace name: {name}")
+        workspace_names.add(name)
+        if not name.startswith("ws-"):
+            warnings.append(f"Workspace does not follow the ws- naming convention: {name}")
+        items = workspace.get("items", [])
+        if not isinstance(items, list):
+            errors.append(f"Items must be a list in {name}")
+            continue
+        for raw_item in items:
+            item = {"name": raw_item[0], "type": raw_item[1]} if isinstance(raw_item, list) and len(raw_item) == 2 else raw_item
+            item_name = str(item.get("name", "")).strip() if isinstance(item, dict) else ""
+            item_type = item.get("type") if isinstance(item, dict) else None
+            if not item_name or not item_type:
+                errors.append(f"Every item needs a name and type in {name}")
+                continue
+            key = (name, item_name)
+            if key in item_keys:
+                errors.append(f"Duplicate item in {name}: {item_name}")
+            item_keys.add(key)
+            if item_type not in valid_types:
+                errors.append(f"Unsupported item type in {name}: {item_type}")
+            if item_name != item_name.lower():
+                errors.append(f"Item name must use lowercase letters: {item_name}")
+            definition = item.get("definition")
+            if definition and not (ROOT / definition).is_file():
+                errors.append(f"Definition not found: {definition}")
+        if not items:
+            warnings.append(f"Workspace has no items: {name}")
+    return {"valid": not errors, "errors": errors, "warnings": warnings}
+
+
+def plan_operations(plan):
+    operations = []
+    for workspace in plan.get("workspaces", []):
+        operations.append({
+            "action": "create",
+            "resource": f"{workspace['name']}.Workspace",
+            "command": f"fab create {workspace['name']}.Workspace -P capacityName={plan['capacity']}",
+        })
+        for item in workspace.get("items", []):
+            item = {"name": item[0], "type": item[1]} if isinstance(item, list) else item
+            command = f"fab create {workspace['name']}.Workspace/{item['name']}.{item['type']}"
+            if item.get("type") == "Lakehouse" and item.get("enableSchemas"):
+                command += " -P enableSchemas=true"
+            operations.append({"action": "create", "resource": f"{workspace['name']}/{item['name']}", "command": command})
+    return operations
+
+
+def load_history():
+    if not HISTORY_PATH.is_file():
+        return []
+    try:
+        return json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+
+def record_deployment(plan, result):
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    history = load_history()
+    history.insert(0, {
+        "id": uuid.uuid4().hex,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "capacity": plan.get("capacity"),
+        "workspaces": [workspace.get("name") for workspace in plan.get("workspaces", [])],
+        "items": result.get("items", 0),
+        "status": result.get("status"),
+        "plan": plan,
+    })
+    HISTORY_PATH.write_text(json.dumps(history[:25], indent=2), encoding="utf-8")
+
+
 def provision_plan(plan, job_id=None):
     normalized = plan
     if not normalized.get("capacity") or not normalized.get("workspaces"):
         raise ValueError("A capacity and at least one workspace are required")
-    valid_types = {"VariableLibrary", "Notebook", "DataPipeline", "Lakehouse", "SemanticModel", "Report"}
+    valid_types = {"VariableLibrary", "Notebook", "DataPipeline", "Lakehouse", "Warehouse", "SemanticModel", "Report", "Dataflow", "DataflowGen2", "Eventstream"}
     for workspace in normalized["workspaces"]:
         if not workspace.get("name"):
             raise ValueError("Every workspace needs a name")
@@ -167,6 +327,7 @@ def provision_plan(plan, job_id=None):
             JOBS[job_id]["completed"] = len(completed)
             JOBS[job_id]["events"][-1]["status"] = "completed"
     result = {"status": "completed", "workspaces": len(normalized["workspaces"]), "items": sum(len(w["items"]) for w in normalized["workspaces"]), "completed": completed}
+    record_deployment(normalized, result)
     if job_id:
         JOBS[job_id].update(result)
     return result
@@ -233,6 +394,19 @@ def delete_workspace(payload):
     return {"status": "deleted", "workspace": workspace_name}
 
 
+def rollback_deployment(payload):
+    if payload.get("confirm") is not True:
+        raise ValueError("Rollback requires explicit confirmation")
+    deployment = next((entry for entry in load_history() if entry.get("id") == payload.get("deploymentId")), None)
+    if not deployment:
+        raise ValueError("Deployment history entry was not found")
+    deleted = []
+    for workspace_name in deployment.get("workspaces", []):
+        delete_workspace({"workspaceName": workspace_name, "confirmName": workspace_name, "confirm": True})
+        deleted.append(workspace_name)
+    return {"status": "rolled_back", "deploymentId": deployment["id"], "workspaces": deleted}
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FRONTEND), **kwargs)
@@ -247,7 +421,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/api/health":
             self.send_json(200, {"status": "ok", "service": "fabricflow-control-panel"})
             return
@@ -257,15 +432,36 @@ class Handler(SimpleHTTPRequestHandler):
             except (RuntimeError, OSError) as error:
                 self.send_json(500, {"error": str(error)})
             return
+        if path == "/api/azure/tenants":
+            try:
+                self.send_json(200, azure_tenants())
+            except (RuntimeError, OSError) as error:
+                self.send_json(500, {"error": str(error)})
+            return
+        if path == "/api/classifications":
+            try:
+                self.send_json(200, classifications_data())
+            except (RuntimeError, OSError) as error:
+                self.send_json(500, {"error": str(error)})
+            return
+        if path == "/api/platform/config":
+            try:
+                self.send_json(200, platform_config())
+            except (OSError, yaml.YAMLError) as error:
+                self.send_json(500, {"error": str(error)})
+            return
         if path == "/api/provision/status":
-            job_id = urlparse(self.path).query.removeprefix("job=")
+            job_id = parsed.query.removeprefix("job=")
             self.send_json(200, JOBS.get(job_id, {"status": "not_found"}))
+            return
+        if path == "/api/deployments":
+            self.send_json(200, load_history())
             return
         super().do_GET()
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path not in {"/api/plan", "/api/azure/capacities", "/api/provision", "/api/git/connect", "/api/workspace/delete"}:
+        if path not in {"/api/plan", "/api/plan/validate", "/api/plan/diff", "/api/azure/capacities", "/api/provision", "/api/git/connect", "/api/workspace/delete", "/api/deployments/rollback"}:
             self.send_json(404, {"error": "Not found"})
             return
         try:
@@ -273,6 +469,14 @@ class Handler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if path == "/api/plan":
                 self.send_json(200, build_plan(payload))
+            elif path == "/api/plan/validate":
+                self.send_json(200, validate_plan(payload.get("plan", {})))
+            elif path == "/api/plan/diff":
+                validation = validate_plan(payload.get("plan", {}))
+                if not validation["valid"]:
+                    self.send_json(400, validation)
+                else:
+                    self.send_json(200, {"operations": plan_operations(payload["plan"]), "summary": "No Fabric resources were changed."})
             elif path == "/api/azure/capacities":
                 self.send_json(200, azure_capacities(str(payload.get("subscriptionId", ""))))
             elif path == "/api/provision":
@@ -286,6 +490,8 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(200, connect_git(payload))
             elif path == "/api/workspace/delete":
                 self.send_json(200, delete_workspace(payload))
+            elif path == "/api/deployments/rollback":
+                self.send_json(200, rollback_deployment(payload))
         except (ValueError, RuntimeError, OSError, json.JSONDecodeError) as error:
             self.send_json(400, {"error": str(error)})
 

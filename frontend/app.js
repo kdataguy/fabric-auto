@@ -77,10 +77,28 @@ async function generatePlan() {
     if (!response.ok) throw new Error(data.error);
     plan = data;
     render();
-    formMessage.textContent = 'Plan updated. Review names below before provisioning.';
+    const validation = await validatePlan(false);
+    formMessage.textContent = validation.valid
+      ? 'Plan updated and validated. Review names below before provisioning.'
+      : `Plan needs attention: ${validation.errors[0]}`;
   } catch (error) {
     formMessage.textContent = `Plan error: ${error.message}`;
   }
+}
+
+async function validatePlan(showMessage = true) {
+  const response = await fetch('/api/plan/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan })
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Plan validation failed');
+  if (showMessage) {
+    const detail = result.warnings.length ? ` ${result.warnings[0]}` : '';
+    formMessage.textContent = result.valid ? `Plan is valid.${detail}` : `Plan error: ${result.errors[0]}`;
+  }
+  return result;
 }
 
 async function loadSubscriptions() {
@@ -90,7 +108,13 @@ async function loadSubscriptions() {
     const subscriptions = await response.json();
     if (!response.ok) throw new Error(subscriptions.error);
     select.innerHTML = subscriptions.map((subscription) => `<option value="${subscription.id}">${subscription.name}</option>`).join('');
-    if (subscriptions[0]) await loadCapacities(subscriptions[0].id);
+    if (subscriptions[0]) {
+      try {
+        await loadCapacities(subscriptions[0].id);
+      } catch (error) {
+        formMessage.textContent = `Capacity discovery unavailable: ${error.message}. Select another subscription.`;
+      }
+    }
   } catch (error) {
     select.innerHTML = '<option value="">Azure login required</option>';
     formMessage.textContent = `Azure discovery unavailable: ${error.message}`;
@@ -212,7 +236,7 @@ function renderWorkspaces() {
     button.addEventListener('click', () => {
       const name = prompt('Item name');
       if (!name) return;
-      const type = prompt('Fabric type (Notebook, Lakehouse, DataPipeline, Report, SemanticModel, VariableLibrary)', 'Notebook');
+      const type = prompt('Fabric type (Notebook, Lakehouse, Warehouse, DataPipeline, DataflowGen2, Eventstream, Report, SemanticModel, VariableLibrary)', 'Notebook');
       if (!type) return;
       plan.workspaces[Number(button.dataset.addItem)].items.push({ name: name.trim(), type: type.trim() });
       render();
@@ -278,6 +302,16 @@ document.querySelector('#subscriptionSelect').addEventListener('change', (event)
 document.querySelector('#capacitySelect').addEventListener('change', (event) => { document.querySelector('#capacityInput').value = event.target.value; });
 
 document.querySelector('#deployButton').addEventListener('click', async (event) => {
+  try {
+    const validation = await validatePlan(false);
+    if (!validation.valid) {
+      deployMessage.textContent = `Deployment blocked: ${validation.errors[0]}`;
+      return;
+    }
+  } catch (error) {
+    deployMessage.textContent = `Validation failed: ${error.message}`;
+    return;
+  }
   if (!window.confirm('Deploy this reviewed plan to Fabric? This will create the listed workspaces and items.')) return;
   const deployButton = event.currentTarget;
   deployMessage.textContent = 'Deployment started.';
@@ -354,6 +388,86 @@ document.querySelector('#copyCommandButton').addEventListener('click', async (ev
   setTimeout(() => { event.currentTarget.innerHTML = 'Copy commands <span>→</span>'; }, 1200);
 });
 
+function addPlanTools() {
+  const actions = document.querySelector('.review-actions');
+  if (!actions || document.querySelector('#importPlanButton')) return;
+  const importButton = document.createElement('button');
+  importButton.className = 'secondary-button';
+  importButton.id = 'importPlanButton';
+  importButton.textContent = 'Import plan';
+  const validateButton = document.createElement('button');
+  validateButton.className = 'secondary-button';
+  validateButton.id = 'validatePlanButton';
+  validateButton.textContent = 'Validate plan';
+  const diffButton = document.createElement('button');
+  diffButton.className = 'secondary-button';
+  diffButton.id = 'dryRunButton';
+  diffButton.textContent = 'Dry run';
+  const historyButton = document.createElement('button');
+  historyButton.className = 'secondary-button';
+  historyButton.id = 'historyButton';
+  historyButton.textContent = 'History';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/json';
+  fileInput.hidden = true;
+  actions.prepend(historyButton, diffButton, validateButton, importButton, fileInput);
+
+  importButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    try {
+      const imported = JSON.parse(await file.text());
+      const validationResponse = await fetch('/api/plan/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: imported }) });
+      const validation = await validationResponse.json();
+      if (!validation.valid) throw new Error(validation.errors[0]);
+      plan = imported;
+      render();
+      formMessage.textContent = 'Plan imported and validated.';
+    } catch (error) {
+      formMessage.textContent = `Import failed: ${error.message}`;
+    } finally {
+      fileInput.value = '';
+    }
+  });
+  validateButton.addEventListener('click', () => validatePlan(true).catch((error) => { formMessage.textContent = `Validation failed: ${error.message}`; }));
+  diffButton.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/api/plan/diff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.errors?.[0] || result.error);
+      output.textContent = result.operations.map((operation) => `${operation.action.toUpperCase()} ${operation.resource}\n  ${operation.command}`).join('\n');
+      deployMessage.textContent = `${result.operations.length} operations previewed. ${result.summary}`;
+    } catch (error) {
+      deployMessage.textContent = `Dry run failed: ${error.message}`;
+    }
+  });
+  historyButton.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/api/deployments');
+      const history = await response.json();
+      deployMessage.textContent = history.length
+        ? history.map((entry) => `${entry.timestamp} · ${entry.workspaces.length} workspace(s) · ${entry.id}`).join('\n')
+        : 'No completed deployments recorded yet.';
+      if (history.length) {
+        const deploymentId = window.prompt('Enter a deployment ID to roll back, or cancel:');
+        if (!deploymentId) return;
+        const deployment = history.find((entry) => entry.id === deploymentId.trim());
+        if (!deployment) throw new Error('Deployment ID was not found');
+        const confirmation = window.prompt(`This permanently deletes ${deployment.workspaces.join(', ')}. Type ROLLBACK to continue:`);
+        if (confirmation !== 'ROLLBACK') return;
+        const rollbackResponse = await fetch('/api/deployments/rollback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deploymentId: deployment.id, confirm: true }) });
+        const result = await rollbackResponse.json();
+        if (!rollbackResponse.ok) throw new Error(result.error);
+        deployMessage.textContent = `Rollback complete: ${result.workspaces.length} workspace(s) deleted.`;
+      }
+    } catch (error) {
+      deployMessage.textContent = `History unavailable: ${error.message}`;
+    }
+  });
+}
+
 document.querySelector('#resetButton').addEventListener('click', () => {
   plan = structuredClone(starterPlan);
   document.querySelector('#orgInput').value = 'contoso';
@@ -362,5 +476,6 @@ document.querySelector('#resetButton').addEventListener('click', () => {
   render();
 });
 
+addPlanTools();
 render();
 loadSubscriptions();
